@@ -1,0 +1,17 @@
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    max-width: none;
+  }
+
+  .glass-panel {
+    border-radius: 1rem;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: auto;
+  }
+}

@@ -1,0 +1,56 @@
+import { VirtualList } from '../shared/VirtualList';
+import { Card, CardBody, CardHeader, CardTitle } from '../ui/card';
+
+export function StageHeatmapGrid({ data = [] }) {
+  const renderStageRow = (row) => (
+    <div className="grid gap-2">
+      <div className="text-xs font-semibold text-[rgb(var(--text))]">{row.projectName}</div>
+      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
+        {Object.entries(row.stages || {}).map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs">
+            <div className="text-slate-400">{label}</div>
+            <div className="mt-1 font-semibold text-[rgb(var(--text))]">{value}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <Card className="self-start overflow-hidden">
+      <CardHeader>
+        <CardTitle>Stage Heatmap</CardTitle>
+      </CardHeader>
+      <CardBody className="min-h-0">
+        {data.length ? (
+          data.length > 6 ? (
+            <VirtualList
+              items={data}
+              estimateSize={148}
+              className="h-[min(46vh,420px)] pr-1"
+              renderItem={(row) => <div className="pb-3">{renderStageRow(row)}</div>}
+            />
+          ) : (
+            <div className="max-h-[320px] space-y-3 overflow-auto pr-1">
+              {data.map((row) => (
+                <div key={row.projectId} className="grid gap-2">
+                  <div className="text-xs font-semibold text-[rgb(var(--text))]">{row.projectName}</div>
+                  <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                    {Object.entries(row.stages || {}).map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs">
+                        <div className="text-slate-400">{label}</div>
+                        <div className="mt-1 font-semibold text-[rgb(var(--text))]">{value}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="text-sm text-slate-400">No stage data.</div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}

@@ -1,0 +1,145 @@
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { pageVariants } from '../utils/motionVariants';
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '../hooks/useProjects';
+import { useProjectStore } from '../store/projectStore';
+import { useUiStore } from '../store/uiStore';
+import { exportProjectsToExcel } from '../lib/export';
+import { ProjectTable } from '../components/projects/ProjectTable';
+import { ProjectFilters } from '../components/projects/ProjectFilters';
+import { ProjectForm } from '../components/projects/ProjectForm';
+import { ProjectExportButton } from '../components/projects/ProjectExportButton';
+import { ModalShell } from '../components/shared/ModalShell';
+import { SkeletonTable } from '../components/shared/SkeletonTable';
+import { EmptyState } from '../components/shared/EmptyState';
+import { Card, CardBody } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { useDebouncedValue } from '../utils/performance';
+
+export default function Projects() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const projectsQuery = useProjects();
+  const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
+  const { filters, setFilter } = useProjectStore();
+  const { activeModal, modalData, openModal, closeModal, openConfirm } = useUiStore();
+  const [searchInput, setSearchInput] = useState(filters.search);
+  const [showFilters, setShowFilters] = useState(true);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const deferredSearch = useDeferredValue(filters.search);
+
+  useEffect(() => {
+    if (location.state?.openProjectDialog) {
+      openModal('project', null);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate, openModal]);
+
+  useEffect(() => {
+    setFilter('search', debouncedSearch);
+  }, [debouncedSearch, setFilter]);
+
+  const filtered = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    return (projectsQuery.data || []).filter((project) => {
+      const matchesSearch =
+        !q ||
+        [project.projectName, project.clientName, project.location, project.currentStage, project.companySegment, ...(project.projectType || [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      const matchesStatus = !filters.status || filters.status === 'all' || project.overallStatus === filters.status;
+      const matchesSegment = !filters.segment || filters.segment === 'all' || project.companySegment === filters.segment;
+      const matchesPriority = !filters.priority || filters.priority === 'all' || project.priority === filters.priority;
+      return matchesSearch && matchesStatus && matchesSegment && matchesPriority;
+    });
+  }, [deferredSearch, filters, projectsQuery.data]);
+
+  async function handleSave(values) {
+    if (modalData?.id) {
+      await updateProject.mutateAsync({ id: modalData.id, payload: values });
+    } else {
+      await createProject.mutateAsync(values);
+    }
+    closeModal();
+  }
+
+  function handleDelete(project) {
+    openConfirm({
+      title: 'Delete project',
+      message: `Delete ${project.projectName}? This removes the project and related data.`,
+      confirmLabel: 'Delete',
+      tone: 'rose',
+      onConfirm: () => deleteProject.mutateAsync(project.id),
+    });
+  }
+
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6 pb-8">
+      <section className="theme-hero theme-hero-slate p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="hero-kicker">Projects</p>
+            <h1 className="hero-title">All projects</h1>
+            <p className="hero-subtitle max-w-3xl">Search, filter, create, update, export, and delete project records.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ProjectExportButton onClick={() => exportProjectsToExcel(filtered)} />
+            <Button onClick={() => openModal('project', null)}>Add Project</Button>
+          </div>
+        </div>
+      </section>
+
+      <Card>
+        <CardBody className="space-y-4">
+          {projectsQuery.isError ? (
+            <Card>
+              <CardBody className="flex items-center gap-3 py-10">
+                <AlertCircle className="h-5 w-5 text-rose-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-[rgb(var(--text))]">{projectsQuery.error?.message || 'Failed to load projects'}</div>
+                  <div className="text-xs text-slate-500">Refresh once the API is available.</div>
+                </div>
+                <Button variant="secondary" onClick={() => projectsQuery.refetch()}>Retry</Button>
+              </CardBody>
+            </Card>
+          ) : null}
+          <ProjectFilters
+            search={searchInput}
+            onSearchChange={setSearchInput}
+            filters={filters}
+            onChange={(key, value) => setFilter(key, value)}
+            showFilters={showFilters}
+            onToggleFilters={() => setShowFilters((current) => !current)}
+          />
+
+          {projectsQuery.isLoading ? (
+            <SkeletonTable rows={6} columns={9} />
+          ) : filtered.length ? (
+            <ProjectTable
+              rows={filtered}
+              onEdit={(project) => openModal('project', project)}
+              onDelete={handleDelete}
+            />
+          ) : (
+            <EmptyState title="No matching projects" description="Try adjusting search or filters." />
+          )}
+        </CardBody>
+      </Card>
+
+      {activeModal === 'project' ? (
+        <ModalShell
+          title={modalData?.id ? 'Edit Project' : 'Add Project'}
+          description="Create or update a project record."
+          onClose={closeModal}
+        >
+          <ProjectForm initialValues={modalData} onSubmit={handleSave} onCancel={closeModal} />
+        </ModalShell>
+      ) : null}
+    </motion.div>
+  );
+}

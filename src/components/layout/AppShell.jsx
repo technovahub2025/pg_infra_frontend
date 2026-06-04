@@ -1,11 +1,11 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import {
-  Bell,
-  ChartPie,
   BarChart3,
+  ChartPie,
   Columns3,
   FolderKanban,
+  Bell,
   LogOut,
   Menu,
   Plus,
@@ -22,31 +22,37 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useUiStore } from '../../store/uiStore';
-import { navItems } from '../../config/navigation';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
-import { api } from '../../lib/api';
-
-const iconMap = {
-  LayoutDashboard,
-  ChartPie,
-  FolderKanban,
-  Columns3,
-  Route,
-  Users,
-  ReceiptText,
-  BarChart3,
-};
-
-function NavIcon({ name, className }) {
-  const Icon = iconMap[name] || LayoutDashboard;
-  return <Icon className={className} />;
-}
+import { useAuthStore } from '../../store/authStore';
+import { RoleGuard } from './RoleGuard';
+import { ROLE_LABELS } from '../../utils/roleUtils';
+import logo from '../../assets/logo.png';
+import { ConfirmModal } from '../shared/ConfirmModal';
+import { TimerWidget } from '../timer/TimerWidget';
+import { useTimer } from '../../hooks/useTimer';
+import { useSocket } from '../../hooks/useSocket';
+import { useNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useDeleteNotification } from '../../hooks/useNotifications';
+import { useNotificationStore } from '../../store/notificationStore';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { NotificationPanel } from '../notifications/NotificationPanel';
 
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed, theme, toggleTheme } = useUiStore();
+  const panelOpen = useNotificationStore((state) => state.panelOpen);
+  const togglePanel = useNotificationStore((state) => state.togglePanel);
+  const notifications = useNotificationStore((state) => state.notifications);
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const markAllRead = useMarkAllNotificationsRead();
+  const markRead = useMarkNotificationRead();
+  const deleteNotification = useDeleteNotification();
+  useSocket();
+  useTimer();
+  useNotifications();
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -54,9 +60,9 @@ export function AppShell() {
 
   async function handleLogout() {
     try {
-      await api.post('/api/auth/logout');
+      await logout();
       toast.success('Logged out');
-      navigate('/dashboard', { replace: true });
+      navigate('/login', { replace: true });
     } catch {
       toast.error('Logout failed');
     }
@@ -66,15 +72,13 @@ export function AppShell() {
     navigate('/projects', { state: { openProjectDialog: true } });
   }
 
-  function handleNotifications() {
-    toast('2 approvals pending, 1 invoice awaiting review');
-  }
-
   function handleSettings() {
-    toast('Settings panel opened');
+    navigate('/settings');
   }
 
   return (
+    <>
+    <ConfirmModal />
     <div className="min-h-screen bg-transparent text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-[1920px]">
         <aside
@@ -86,12 +90,12 @@ export function AppShell() {
         >
           <div className="flex h-full flex-col lg:overflow-y-auto">
             <div className="flex items-center gap-3 border-b border-[rgb(var(--line)/0.16)] px-5 py-5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-cyan-400 to-emerald-400 font-display text-sm font-bold text-slate-950">
-                PG
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[rgb(var(--panel-2)/0.92)] ring-1 ring-[rgb(var(--line)/0.14)]">
+                <img src={logo} alt="zerowall logo" className="h-full w-full object-cover" />
               </div>
               <div className={cn('min-w-0', sidebarCollapsed && 'lg:hidden')}>
-                <div className="font-display text-[15px] font-bold tracking-wide">PG Infrastructure</div>
-                <div className="text-xs text-slate-400">Project Suite</div>
+                <div className="font-display text-[15px] font-bold tracking-wide">zerowall</div>
+                <div className="text-xs text-slate-400">built for those who never miss</div>
               </div>
             </div>
 
@@ -99,47 +103,56 @@ export function AppShell() {
               <div className="space-y-6">
                 <div>
                   <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>
-                    Overview
+                    Personal
                   </p>
                   <div className="space-y-1">
-                    {navItems.slice(0, 2).map((item) => (
-                      <SidebarLink key={item.path} item={item} collapsed={sidebarCollapsed} />
-                    ))}
+                    <SidebarLink item={{ label: 'My Tasks', path: '/my-tasks', icon: 'LayoutDashboard' }} collapsed={sidebarCollapsed} />
+                    <SidebarLink item={{ label: 'My Timesheets', path: '/my-timesheets', icon: 'BarChart3' }} collapsed={sidebarCollapsed} />
+                    <SidebarLink item={{ label: 'Profile', path: '/profile', icon: 'Users' }} collapsed={sidebarCollapsed} />
+                    <SidebarLink item={{ label: 'Notifications', path: '/notifications', icon: 'Bell' }} collapsed={sidebarCollapsed} />
                   </div>
                 </div>
 
-                <div>
-                  <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>
-                    Projects
-                  </p>
-                  <div className="space-y-1">
-                    {navItems.slice(2, 5).map((item) => (
-                      <SidebarLink key={item.path} item={item} collapsed={sidebarCollapsed} />
-                    ))}
+                <RoleGuard roles={['superadmin', 'admin']}>
+                  <div>
+                    <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>
+                      Operations
+                    </p>
+                    <div className="space-y-1">
+                      <SidebarLink item={{ label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Projects', path: '/projects', icon: 'FolderKanban' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Kanban', path: '/kanban', icon: 'Columns3' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Stage Detail', path: '/stages', icon: 'Route' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Employees', path: '/employees', icon: 'Users' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Team', path: '/team', icon: 'Users' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Billing', path: '/billing', icon: 'ReceiptText' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Reports', path: '/reports', icon: 'BarChart3' }} collapsed={sidebarCollapsed} />
+                    </div>
                   </div>
-                </div>
+                </RoleGuard>
 
-                <div>
-                  <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>
-                    Team
-                  </p>
-                  <div className="space-y-1">
-                    {navItems.slice(5).map((item) => (
-                      <SidebarLink key={item.path} item={item} collapsed={sidebarCollapsed} />
-                    ))}
+                <RoleGuard roles={['superadmin']}>
+                  <div>
+                    <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>
+                      Executive
+                    </p>
+                    <div className="space-y-1">
+                      <SidebarLink item={{ label: 'CEO / MD View', path: '/ceo', icon: 'ChartPie' }} collapsed={sidebarCollapsed} />
+                      <SidebarLink item={{ label: 'Settings', path: '/settings', icon: 'Settings2' }} collapsed={sidebarCollapsed} />
+                    </div>
                   </div>
-                </div>
+                </RoleGuard>
               </div>
             </nav>
 
             <div className="border-t border-[rgb(var(--line)/0.16)] p-4">
               <div className="flex items-center gap-3 rounded-2xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.84)] p-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 font-semibold text-white">
-                  SA
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-amber-500 font-semibold text-white">
+                  {(user?.name || 'Z')[0]?.toUpperCase()}
                 </div>
                 <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'lg:hidden')}>
-                  <div className="truncate text-sm font-semibold">Super Admin</div>
-                  <div className="text-xs text-sky-300">Superadmin</div>
+                  <div className="truncate text-sm font-semibold">{user?.name || 'Signed in user'}</div>
+                  <div className="text-xs text-sky-300">{ROLE_LABELS[user?.role] || user?.role || 'Employee'}</div>
                 </div>
                 <Button
                   type="button"
@@ -189,10 +202,10 @@ export function AppShell() {
 
               <div className="min-w-0 flex-1">
                 <div className="font-display text-base font-semibold tracking-wide text-[rgb(var(--text))] sm:text-lg">
-                  PG Infrastructure
+                  zerowall
                 </div>
                 <p className="truncate text-xs text-slate-500 sm:text-sm">
-                  Project operations dashboard
+                  built for those who never miss
                 </p>
               </div>
 
@@ -205,15 +218,10 @@ export function AppShell() {
                 <Plus className="h-4 w-4" />
                 New Project
               </Button>
-              <button
-                type="button"
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.82)] text-[rgb(var(--text))] transition hover:bg-[rgb(var(--panel-2)/0.96)]"
-                aria-label="Notifications"
-                onClick={handleNotifications}
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-400" />
-              </button>
+              <div className="hidden md:block">
+                <TimerWidget />
+              </div>
+              <NotificationBell count={unreadCount} onClick={togglePanel} />
               <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.82)] text-[rgb(var(--text))] transition hover:bg-[rgb(var(--panel-2)/0.96)]"
@@ -230,24 +238,50 @@ export function AppShell() {
               >
                 <Settings2 className="h-4 w-4" />
               </button>
+              <div className="md:hidden">
+                <TimerWidget />
+              </div>
             </div>
           </header>
 
-          <main className="relative min-w-0 flex-1 overflow-x-hidden">
+          <main className="relative min-w-0 flex-1 overflow-x-hidden pb-10">
             <div className="soft-grid absolute inset-0 pointer-events-none opacity-25" />
             <div className="relative min-w-0 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
               <Outlet />
             </div>
           </main>
         </div>
+
+        <NotificationPanel
+          open={panelOpen}
+          notifications={notifications}
+          onClose={() => useNotificationStore.getState().setPanelOpen(false)}
+          onRead={(id) => markRead.mutate(id)}
+          onDelete={(id) => deleteNotification.mutate(id)}
+          onMarkAllRead={() => markAllRead.mutate()}
+        />
       </div>
     </div>
+    </>
   );
 }
 
 function SidebarLink({ item, collapsed }) {
   const theme = useUiStore((state) => state.theme);
   const isLight = theme === 'light';
+  const iconMap = {
+    LayoutDashboard,
+    ChartPie,
+    FolderKanban,
+    Columns3,
+    Route,
+    Users,
+    ReceiptText,
+    BarChart3,
+    Settings2,
+    Bell,
+  };
+  const Icon = iconMap[item.icon] || LayoutDashboard;
 
   return (
     <NavLink
@@ -266,7 +300,7 @@ function SidebarLink({ item, collapsed }) {
         )
       }
     >
-      <NavIcon name={item.icon} className="h-4 w-4 shrink-0" />
+      <Icon className="h-4 w-4 shrink-0" />
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'lg:hidden')}>{item.label}</span>
       {item.badge ? (
         <span className={cn('rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300', collapsed && 'lg:hidden')}>

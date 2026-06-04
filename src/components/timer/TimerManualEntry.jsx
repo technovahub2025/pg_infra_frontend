@@ -1,0 +1,96 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '../ui/button';
+
+const schema = z.object({
+  projectId: z.string().min(1, 'Project is required'),
+  taskId: z.string().optional(),
+  stageId: z.string().optional(),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
+  note: z.string().optional(),
+});
+
+export function TimerManualEntry({ projects = [], tasks = [], initialValues, onSubmit, onCancel }) {
+  const { register, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      projectId: '',
+      taskId: '',
+      stageId: '',
+      startTime: '',
+      endTime: '',
+      note: '',
+    },
+  });
+
+  const projectId = watch('projectId');
+  const filteredTasks = tasks.filter((task) => String(task.projectId || task.project?._id || task.project?.id || task.project) === String(projectId));
+
+  useEffect(() => {
+    if (initialValues) {
+      reset(initialValues);
+    }
+  }, [initialValues, reset]);
+
+  return (
+    <form
+      className="grid gap-4 sm:grid-cols-2"
+      onSubmit={handleSubmit(async (values) => {
+        const start = new Date(values.startTime);
+        const end = new Date(values.endTime);
+        await onSubmit({
+          ...values,
+          duration: Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000)),
+        });
+      })}
+    >
+      <Field label="Project">
+        <select className="input" {...register('projectId')}>
+          <option value="">Select project</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.projectName}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Task">
+        <select className="input" {...register('taskId')}>
+          <option value="">Optional task</option>
+          {filteredTasks.map((task) => (
+            <option key={task.id} value={task.id}>
+              {task.title}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Start Time">
+        <input type="datetime-local" className="input" {...register('startTime')} />
+      </Field>
+      <Field label="End Time">
+        <input type="datetime-local" className="input" {...register('endTime')} />
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="Note">
+          <textarea className="input min-h-[96px]" {...register('note')} />
+        </Field>
+      </div>
+      <div className="sm:col-span-2 flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isSubmitting}>Save Entry</Button>
+      </div>
+    </form>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</span>
+      {children}
+    </label>
+  );
+}

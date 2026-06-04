@@ -1,0 +1,137 @@
+import { useEffect, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { timerService } from '../services/timerService';
+import { useAuthStore } from '../store/authStore';
+import { useTimerStore } from '../store/timerStore';
+
+function normalizeLog(log) {
+  if (!log) return null;
+  return {
+    ...log,
+    task: log.task || null,
+    project: log.project || null,
+    stage: log.stage || null,
+    user: log.user || null,
+    elapsedSeconds: log.elapsedSeconds || Math.max(0, Math.floor((Date.now() - new Date(log.startTime).getTime()) / 1000)),
+  };
+}
+
+export function useTimer() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((state) => state.user?.id);
+  const activeLog = useTimerStore((state) => state.activeLog);
+  const isRunning = useTimerStore((state) => state.isRunning);
+  const elapsedSeconds = useTimerStore((state) => state.elapsedSeconds);
+  const syncing = useTimerStore((state) => state.syncing);
+  const setSyncing = useTimerStore((state) => state.setSyncing);
+  const setActiveLog = useTimerStore((state) => state.setActiveLog);
+  const clearActiveLog = useTimerStore((state) => state.clearActiveLog);
+  const startTicker = useTimerStore((state) => state.startTicker);
+  const stopTicker = useTimerStore((state) => state.stopTicker);
+  const tick = useTimerStore((state) => state.tick);
+
+  const activeQuery = useQuery({
+    queryKey: ['timer-active', userId || 'guest'],
+    queryFn: timerService.active,
+  });
+
+  useEffect(() => {
+    setSyncing(activeQuery.isLoading);
+    if (activeQuery.data) {
+      setActiveLog(normalizeLog(activeQuery.data));
+      startTicker();
+      tick();
+    } else if (activeQuery.data === null) {
+      clearActiveLog();
+      stopTicker();
+    }
+  }, [activeQuery.data, activeQuery.isLoading, setSyncing, setActiveLog, clearActiveLog, startTicker, stopTicker, tick]);
+
+  const startMutation = useMutation({
+    mutationFn: ({ taskId, projectId, stageId, note }) =>
+      timerService.start({ taskId, projectId, stageId, note }),
+    onSuccess: (data) => {
+      setActiveLog(normalizeLog(data));
+      startTicker();
+      tick();
+      toast.success('Timer started');
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
+    onError: () => toast.error('Failed to start timer'),
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => timerService.stop(),
+    onSuccess: () => {
+      clearActiveLog();
+      stopTicker();
+      toast.success('Timer stopped');
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
+    onError: () => toast.error('Failed to stop timer'),
+  });
+
+  const manualMutation = useMutation({
+    mutationFn: (payload) => timerService.manual(payload),
+    onSuccess: () => {
+      toast.success('Manual entry added');
+      queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+    },
+    onError: () => toast.error('Failed to save manual entry'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => timerService.remove(id),
+    onSuccess: () => {
+      toast.success('Timer log deleted');
+      queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+    },
+    onError: () => toast.error('Failed to delete timer log'),
+  });
+
+  const logsQuery = useQuery({
+    queryKey: ['timer-logs', userId || 'guest'],
+    queryFn: () => timerService.mine({ groupByDate: true }),
+  });
+
+  return useMemo(
+    () => ({
+      activeLog,
+      isRunning,
+      elapsedSeconds,
+      syncing,
+      logs: logsQuery.data?.logs || [],
+      grouped: logsQuery.data?.grouped || {},
+      dailySummary: logsQuery.data?.dailySummary || [],
+      activeQuery,
+      logsQuery,
+      startTimer: (taskId, projectId, stageId, note = '') =>
+        startMutation.mutateAsync({ taskId, projectId, stageId, note }),
+      stopTimer: () => stopMutation.mutateAsync(),
+      addManualLog: (payload) => manualMutation.mutateAsync(payload),
+      deleteLog: (id) => deleteMutation.mutateAsync(id),
+      refetchActive: () => queryClient.invalidateQueries({ queryKey: ['timer-active'] }),
+    }),
+    [
+      activeLog,
+      isRunning,
+      elapsedSeconds,
+      syncing,
+      logsQuery.data,
+      activeQuery,
+      logsQuery,
+      startMutation,
+      stopMutation,
+      manualMutation,
+      deleteMutation,
+      queryClient,
+    ],
+  );
+}

@@ -141,43 +141,124 @@ export function KpiGrid({ items = [] }) {
 export function RevenueChartCard({ rows = [] }) {
   const theme = useUiStore((state) => state.theme);
   const isLight = theme === 'light';
-  const chartData = useMemo(
+  const summaryRows = useMemo(
     () =>
-      rows.map((item) => ({
-        name: item.name.split(' ').slice(0, 2).join(' '),
-        received: item.received,
-        balance: item.balance,
-      })),
+      rows
+        .map((item) => {
+          const received = Number(item.received || 0);
+          const balance = Number(item.balance || 0);
+          const total = received + balance;
+          const progress = total > 0 ? clamp(Math.round((received / total) * 100), 0, 100) : 0;
+
+          return {
+            ...item,
+            received,
+            balance,
+            total,
+            progress,
+          };
+        })
+        .sort((a, b) => b.total - a.total),
     [rows],
   );
 
+  const summary = useMemo(
+    () =>
+      summaryRows.reduce(
+        (acc, row) => {
+          acc.received += row.received;
+          acc.balance += row.balance;
+          acc.total += row.total;
+          return acc;
+        },
+        { received: 0, balance: 0, total: 0 },
+      ),
+    [summaryRows],
+  );
+
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Revenue Pipeline</CardTitle>
-        <span className="ml-auto text-xs text-slate-400">Rs. Lakhs</span>
+    <Card className="self-start">
+      <CardHeader className="items-start gap-2">
+        <div>
+          <CardTitle>Revenue Pipeline</CardTitle>
+          <p className="mt-1 text-xs text-slate-500">Clean summary of received and pending balances.</p>
+        </div>
+        <span className="ml-auto text-xs uppercase tracking-[0.18em] text-slate-400">Rs. Lakhs</span>
       </CardHeader>
-      <CardBody className="h-[320px] sm:h-[360px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" barSize={16} margin={{ top: 8, right: 12, left: 12, bottom: 8 }}>
-            <CartesianGrid stroke={isLight ? 'rgba(148,163,184,0.18)' : 'rgba(255,255,255,0.06)'} strokeDasharray="4 4" />
-            <XAxis type="number" hide />
-            <YAxis type="category" dataKey="name" width={110} tick={{ fill: isLight ? '#64748b' : '#94a3b8', fontSize: 11 }} />
-            <Tooltip
-              contentStyle={{
-                background: isLight ? 'rgba(255,255,255,0.98)' : 'rgba(2, 6, 23, 0.95)',
-                border: isLight ? '1px solid rgba(148,163,184,0.25)' : '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 16,
-                color: isLight ? '#0f172a' : '#e2e8f0',
-                boxShadow: isLight ? '0 14px 40px rgba(15,23,42,0.12)' : 'none',
-              }}
-            />
-            <Bar dataKey="balance" stackId="a" fill="rgba(59,130,246,0.25)" radius={[0, 12, 12, 0]} />
-            <Bar dataKey="received" stackId="a" fill="#3b82f6" radius={[12, 12, 12, 12]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <CardBody className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <StatCard
+            label="Received"
+            value={summary.received}
+            hint={`${summary.total ? Math.round((summary.received / summary.total) * 100) : 0}% collected`}
+            tone="blue"
+            isLight={isLight}
+          />
+          <StatCard
+            label="Pending"
+            value={summary.balance}
+            hint={`${summaryRows.length} active projects`}
+            tone="slate"
+            isLight={isLight}
+          />
+        </div>
+
+        <div className="max-h-[260px] space-y-3 overflow-auto pr-1">
+          {summaryRows.map((row) => (
+            <article
+              key={row.name}
+              className={cn(
+                'rounded-2xl border p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]',
+                isLight
+                  ? 'border-slate-200/80 bg-white'
+                  : 'border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.78)]',
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[rgb(var(--text))]">{row.name}</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {row.received} received · {row.balance} pending
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold text-[rgb(var(--text))]">{row.progress}%</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Collected</div>
+                </div>
+              </div>
+
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sky-400 to-blue-500"
+                  style={{ width: `${row.progress}%` }}
+                />
+              </div>
+            </article>
+          ))}
+
+          {!summaryRows.length ? (
+            <div className={cn('rounded-2xl border px-4 py-8 text-center text-sm text-slate-400', isLight ? 'border-slate-200 bg-white' : 'border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.78)]')}>
+              No revenue data available.
+            </div>
+          ) : null}
+        </div>
       </CardBody>
     </Card>
+  );
+}
+
+function StatCard({ label, value, hint, tone = 'slate', isLight = false }) {
+  const styles = {
+    blue: isLight ? 'border-sky-200 bg-sky-50/80' : 'border-sky-400/20 bg-sky-500/10',
+    slate: isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-white/5',
+  };
+
+  return (
+    <div className={cn('rounded-2xl border p-3', styles[tone])}>
+      <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-[rgb(var(--text))]">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">{hint}</div>
+    </div>
   );
 }
 

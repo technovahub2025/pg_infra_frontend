@@ -1,27 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --bg: 7 17 28;
-    --panel: 10 25 40;
-    --panel-2: 13 31 49;
-    --panel-3: 18 39 61;
+    --bg: 11 25 41;
+    --panel: 15 34 54;
+    --panel-2: 22 47 72;
+    --panel-3: 30 53 82;
     --line: 255 255 255;
-    --text: 238 245 255;
-    --muted: 144 166 194;
-    --bg-start: 3 7 18;
-    --bg-mid: 7 17 28;
-    --bg-end: 5 10 19;
-    --glow-a: 59 130 246;
-    --glow-b: 16 185 129;
-    --accent: 59 130 246;
-    --accent-2: 34 197 94;
-    --warn: 245 158 11;
-    --danger: 248 113 113;
+    --text: 240 244 250;
+    --muted: 143 168 200;
+    --bg-start: 11 25 41;
+    --bg-mid: 15 34 54;
+    --bg-end: 10 23 38;
+    --glow-a: 46 131 245;
+    --glow-b: 240 164 40;
+    --accent: 46 131 245;
+    --accent-2: 34 201 122;
+    --warn: 240 164 40;
+    --danger: 240 82 82;
     --radius: 1.1rem;
   }
 
@@ -51,7 +49,7 @@
 
   body {
     @apply m-0 min-h-screen antialiased;
-    font-family: 'Manrope', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     background:
       radial-gradient(circle at top left, rgb(var(--glow-a) / 0.18), transparent 34%),
       radial-gradient(circle at top right, rgb(var(--glow-b) / 0.09), transparent 24%),
@@ -64,7 +62,7 @@
   h3,
   h4,
   .font-display {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Syne', sans-serif;
   }
 
   ::selection {

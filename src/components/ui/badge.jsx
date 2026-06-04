@@ -10,7 +10,7 @@ export function Badge({ className, tone = 'slate', children }) {
   };
 
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1', tones[tone], className)}>
+    <span className={cn('inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none ring-1', tones[tone], className)}>
       {children}
     </span>
   );
