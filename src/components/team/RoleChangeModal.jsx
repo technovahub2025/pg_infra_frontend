@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalShell } from '../shared/ModalShell';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({ role: z.enum(['employee', 'admin']) });
 
@@ -26,10 +27,15 @@ export function RoleChangeModal({ open, onClose, onSubmit, initialValues }) {
       <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
         <label className="block">
           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Role</span>
-          <select className="input" {...form.register('role')}>
-            <option value="employee">Employee</option>
-            <option value="admin">Admin</option>
-          </select>
+          <DropdownField
+            value={form.watch('role')}
+            onChange={(nextValue) => form.setValue('role', nextValue, { shouldDirty: true, shouldValidate: true })}
+            options={[
+              { value: 'employee', label: 'Employee' },
+              { value: 'admin', label: 'Admin' },
+            ]}
+            placeholder="Select role"
+          />
         </label>
         <div className="flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>

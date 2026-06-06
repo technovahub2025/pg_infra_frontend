@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   clientName: z.string().min(2, 'Client name is required'),
@@ -35,6 +36,9 @@ export function ClientForm({ initialValues, projects = [], onSubmit, onCancel })
       projectIds: [],
     },
   });
+  const segment = form.watch('segment');
+  const status = form.watch('status');
+  const projectIds = form.watch('projectIds');
 
   useEffect(() => {
     if (!initialValues) return;
@@ -79,24 +83,33 @@ export function ClientForm({ initialValues, projects = [], onSubmit, onCancel })
         <input className="input" {...form.register('companyName')} />
       </Field>
       <Field label="Segment">
-        <select className="input" {...form.register('segment')}>
-          <option value="">Select</option>
-          <option value="Residential">Residential</option>
-          <option value="Commercial">Commercial</option>
-          <option value="Industrial">Industrial</option>
-          <option value="Manufacturing">Manufacturing</option>
-        </select>
+        <DropdownField
+          value={segment || ''}
+          onChange={(nextValue) => form.setValue('segment', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={[
+            { value: 'Residential', label: 'Residential' },
+            { value: 'Commercial', label: 'Commercial' },
+            { value: 'Industrial', label: 'Industrial' },
+            { value: 'Manufacturing', label: 'Manufacturing' },
+          ]}
+          placeholder="Select segment"
+        />
       </Field>
       <Field label="City">
         <input className="input" {...form.register('city')} />
       </Field>
       <Field label="Status">
-        <select className="input" {...form.register('status')}>
-          <option value="Active">Active</option>
-          <option value="Lead">Lead</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Archived">Archived</option>
-        </select>
+        <DropdownField
+          value={status || ''}
+          onChange={(nextValue) => form.setValue('status', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={[
+            { value: 'Active', label: 'Active' },
+            { value: 'Lead', label: 'Lead' },
+            { value: 'Inactive', label: 'Inactive' },
+            { value: 'Archived', label: 'Archived' },
+          ]}
+          placeholder="Select status"
+        />
       </Field>
       <Field label="Address" className="sm:col-span-2">
         <textarea className="input min-h-[96px]" {...form.register('address')} />
@@ -105,13 +118,17 @@ export function ClientForm({ initialValues, projects = [], onSubmit, onCancel })
         <textarea className="input min-h-[96px]" {...form.register('notes')} />
       </Field>
       <Field label="Projects" className="sm:col-span-2">
-        <select className="input min-h-[160px]" multiple {...form.register('projectIds')}>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.projectName || project.name}
-            </option>
-          ))}
-        </select>
+        <DropdownField
+          value={projectIds || []}
+          multiple
+          onChange={(nextValue) => form.setValue('projectIds', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={projects.map((projectItem) => ({
+            value: projectItem.id,
+            label: projectItem.projectName || projectItem.name,
+          }))}
+          placeholder="Select projects"
+          selectedLabel={Array.isArray(projectIds) && projectIds.length ? `${projectIds.length} projects selected` : 'Select projects'}
+        />
       </Field>
       <div className="sm:col-span-2 flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
         <Button type="button" variant="secondary" onClick={onCancel}>

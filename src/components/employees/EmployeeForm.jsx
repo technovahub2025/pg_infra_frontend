@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -32,6 +33,7 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { isSubmitting, errors },
   } = useForm({
@@ -53,6 +55,8 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
   });
 
   const sendInvite = watch('sendInvite');
+  const role = watch('role');
+  const department = watch('department');
 
   useEffect(() => {
     if (initialValues) {
@@ -81,23 +85,32 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
       <Field label="Name" error={errors.name?.message}><input className="input" {...register('name')} /></Field>
       <Field label="Email" error={errors.email?.message}><input className="input" {...register('email')} /></Field>
       <Field label="Role">
-        <select className="input" {...register('role')}>
-          <option value="employee">Employee</option>
-          <option value="admin">Admin</option>
-          <option value="project_manager">Project Manager</option>
-        </select>
+        <DropdownField
+          value={role}
+          onChange={(nextValue) => setValue('role', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={[
+            { value: 'employee', label: 'Employee' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'project_manager', label: 'Project Manager' },
+          ]}
+          placeholder="Select role"
+        />
       </Field>
       <Field label="Phone"><input className="input" {...register('phone')} /></Field>
       <Field label="Designation"><input className="input" {...register('designation')} /></Field>
       <Field label="Department">
-        <select className="input" {...register('department')}>
-          <option value="">Select</option>
-          <option value="Structural">Structural</option>
-          <option value="Architectural">Architectural</option>
-          <option value="Electrical">Electrical</option>
-          <option value="PEB">PEB</option>
-          <option value="Management">Management</option>
-        </select>
+        <DropdownField
+          value={department || ''}
+          onChange={(nextValue) => setValue('department', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={[
+            { value: 'Structural', label: 'Structural' },
+            { value: 'Architectural', label: 'Architectural' },
+            { value: 'Electrical', label: 'Electrical' },
+            { value: 'PEB', label: 'PEB' },
+            { value: 'Management', label: 'Management' },
+          ]}
+          placeholder="Select department"
+        />
       </Field>
       <Field label="Joining Date"><input type="date" className="input" {...register('joiningDate')} /></Field>
       <Field label="Avatar URL"><input className="input" {...register('avatar')} /></Field>

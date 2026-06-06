@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, Clock3, ListTodo, LayoutGrid, Search, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, Clock3, ListTodo, LayoutGrid, Search, ShieldAlert } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { pageVariants } from '../utils/motionVariants';
 import { useAuthStore } from '../store/authStore';
@@ -32,6 +32,8 @@ export default function Kanban() {
   const user = useAuthStore((state) => state.user);
   const role = user?.role || 'employee';
   const [searchParams, setSearchParams] = useSearchParams();
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const projectDropdownRef = useRef(null);
   const projectsQuery = useProjects();
   const employeesQuery = useEmployees();
   const overviewQuery = useKanbanOverview();
@@ -122,6 +124,7 @@ export default function Kanban() {
     label: MODE_DEFS[mode]?.label || mode,
     icon: MODE_DEFS[mode]?.icon,
   }));
+  const selectedProjectLabel = selectedProject ? `${selectedProject.projectName} · ${selectedProject.clientName}` : 'Choose a project';
 
   function updateSearchParams(nextMode, nextProjectId = selectedProjectId) {
     const next = new URLSearchParams(searchParams);
@@ -138,7 +141,39 @@ export default function Kanban() {
 
   function handleProjectChange(nextProjectId) {
     updateSearchParams(activeMode, nextProjectId);
+    setProjectDropdownOpen(false);
   }
+
+  function handleSelectProject(nextProjectId) {
+    if (!nextProjectId) return;
+    handleProjectChange(nextProjectId);
+  }
+
+  useEffect(() => {
+    if (activeMode !== 'project') {
+      setProjectDropdownOpen(false);
+    }
+  }, [activeMode]);
+
+  useEffect(() => {
+    function onPointerDown(event) {
+      if (!projectDropdownRef.current) return;
+      if (!projectDropdownRef.current.contains(event.target)) {
+        setProjectDropdownOpen(false);
+      }
+    }
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') setProjectDropdownOpen(false);
+    }
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
 
   const isLoading = projectsQuery.isLoading || employeesQuery.isLoading || overviewQuery.isLoading || myTasksQuery.isLoading || (activeMode === 'project' && projectTasksQuery.isLoading);
   const isError = projectsQuery.isError || employeesQuery.isError || overviewQuery.isError || myTasksQuery.isError || (activeMode === 'project' && projectTasksQuery.isError);
@@ -176,7 +211,7 @@ export default function Kanban() {
 
       <Card>
         <CardBody className="space-y-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-2">
               {modeOptions.map((option) => {
                 const Icon = option.icon;
@@ -199,30 +234,53 @@ export default function Kanban() {
               })}
             </div>
 
-          {activeMode === 'project' && projects.length ? (
-            <label className="ml-auto flex min-w-[280px] flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Project</span>
-              <div className="relative flex-1">
-                <select
-                  className="input pr-10"
-                    value={selectedProjectId}
-                    onChange={(event) => handleProjectChange(event.target.value)}
+            {activeMode === 'project' && projects.length ? (
+              <div ref={projectDropdownRef} className="flex min-w-0 flex-1 flex-col gap-1 xl:max-w-2xl xl:flex-none">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Project</span>
+                <div className="relative min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setProjectDropdownOpen((current) => !current)}
+                    className="flex h-11 w-full items-center gap-3 rounded-2xl border border-sky-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm transition hover:border-sky-300 hover:bg-slate-50"
                   >
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.projectName} · {project.clientName}
-                      </option>
-                    ))}
-                  </select>
-                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <span className="min-w-0 flex-1 truncate">{selectedProjectLabel}</span>
+                    <Search className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                    <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-slate-400 transition-transform', projectDropdownOpen && 'rotate-180')} />
+                  </button>
+
+                  {projectDropdownOpen ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+                      <div className="scrollbar-none max-h-72 overflow-y-auto py-1">
+                        {projects.map((project) => {
+                          const isActive = String(project.id) === String(selectedProjectId);
+                          return (
+                            <button
+                              key={project.id}
+                              type="button"
+                              onClick={() => handleSelectProject(project.id)}
+                              className={cn(
+                                'flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition',
+                                isActive ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50',
+                              )}
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {project.projectName} · {project.clientName}
+                              </span>
+                              {isActive ? <Check className="h-4 w-4 flex-shrink-0 text-sky-600" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              </label>
+              </div>
             ) : null}
           </div>
 
-            {activeMode === 'project' ? (
-              selectedProject ? (
-                <ProjectKanbanBoard project={selectedProject} tasks={projectTasks} employees={employees} />
+          {activeMode === 'project' ? (
+            selectedProject ? (
+              <ProjectKanbanBoard project={selectedProject} tasks={projectTasks} employees={employees} />
             ) : (
               <EmptyState
                 title="Choose a project"
@@ -231,10 +289,10 @@ export default function Kanban() {
             )
           ) : null}
 
-          {activeMode === 'mine' ? <MyTasksKanbanBoard tasks={myTasks} /> : null}
+          {activeMode === 'mine' ? <MyTasksKanbanBoard tasks={myTasks} projects={projects} employees={employees} /> : null}
 
           {activeMode === 'overview' ? (
-            <KanbanOverviewBoard projects={overviewProjects} columns={overviewColumns} stats={overview.stats || {}} />
+            <KanbanOverviewBoard projects={overviewProjects} columns={overviewColumns} employees={employees} stats={overview.stats || {}} />
           ) : null}
         </CardBody>
       </Card>

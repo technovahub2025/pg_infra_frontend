@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { normalizeProject, normalizeTask } from '../lib/phase2';
+import { kanbanService } from '../services/kanbanService';
 import { taskService } from '../services/taskService';
 import { projectService } from '../services/projectService';
 import { useAuthStore } from '../store/authStore';
@@ -71,6 +72,27 @@ export function useKanbanOverview() {
         ...payload,
         projects: Array.isArray(payload.projects) ? payload.projects.map(normalizeProject) : [],
       };
+    },
+  });
+}
+
+export function useKanbanColumns(boardType) {
+  const user = useAuthStore((state) => state.user);
+  return useQuery({
+    queryKey: ['kanban-columns', boardType],
+    enabled: Boolean(user?.id && boardType),
+    queryFn: async () => kanbanService.getColumns(boardType),
+  });
+}
+
+export function useSaveKanbanColumns() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardType, columns }) => kanbanService.saveColumns(boardType, columns),
+    onSettled: (_data, _error, variables) => {
+      if (variables?.boardType) {
+        queryClient.invalidateQueries({ queryKey: ['kanban-columns', variables.boardType] });
+      }
     },
   });
 }

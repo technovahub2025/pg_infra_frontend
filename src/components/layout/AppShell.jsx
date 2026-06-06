@@ -88,7 +88,7 @@ export function AppShell() {
             sidebarOpen ? 'translate-x-0' : '',
           )}
         >
-          <div className="flex h-full flex-col lg:overflow-y-auto">
+          <div className="scrollbar-none flex h-full flex-col lg:overflow-y-auto">
             <div className="flex items-center justify-center border-b border-[rgb(var(--line)/0.16)] px-5 py-5">
               <div
                 className={cn(
@@ -100,7 +100,7 @@ export function AppShell() {
               </div>
             </div>
 
-            <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4">
+            <nav className="scrollbar-none flex-1 overflow-y-auto px-3 py-4">
               <div className="space-y-6">
                 <div>
                   <p className={cn('mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500', sidebarCollapsed && 'lg:hidden')}>

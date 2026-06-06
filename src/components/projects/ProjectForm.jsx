@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const STATUS_OPTIONS = ['In Progress', 'Completed', 'On Hold', 'Cancelled'];
 const PRIORITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low'];
@@ -49,6 +50,8 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
@@ -78,6 +81,10 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
       balance: '',
     },
   });
+  const overallStatus = watch('overallStatus');
+  const responsibleEngineer = watch('responsibleEngineer');
+  const priority = watch('priority');
+  const invoiceStatus = watch('invoiceStatus');
 
   useEffect(() => {
     if (initialValues) {
@@ -155,16 +162,14 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
       <Field label="Actual End">
         <input className="input" type="date" {...register('actualEnd')} />
       </Field>
-      <Field label="Overall Status">
-        <select className="input" {...register('overallStatus')}>
-          <option value="">Select project status</option>
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <DropdownField
+        label="Overall Status"
+        value={overallStatus}
+        onChange={(nextValue) => setValue('overallStatus', nextValue, { shouldDirty: true, shouldValidate: true })}
+        placeholder="Select project status"
+        selectedLabel={overallStatus || 'Select project status'}
+        options={STATUS_OPTIONS.map((option) => ({ value: option, label: option }))}
+      />
       <Field label="Current Stage">
         <input className="input" {...register('currentStage')} />
       </Field>
@@ -177,19 +182,25 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
       <Field label="Client Approval Date">
         <input className="input" type="date" {...register('clientApprovalDate')} />
       </Field>
-      <Field label="Responsible Engineer">
-        <select className="input" {...register('responsibleEngineer')}>
-          <option value="">Select responsible engineer</option>
-          {employees.map((employee) => {
-            const employeeId = employee.id || employee._id;
-            return (
-              <option key={employeeId} value={employeeId}>
-                {employee.name || employee.label || employee.email}
-              </option>
-            );
-          })}
-        </select>
-      </Field>
+      <DropdownField
+        label="Responsible Engineer"
+        value={responsibleEngineer}
+        onChange={(nextValue) => setValue('responsibleEngineer', nextValue, { shouldDirty: true, shouldValidate: true })}
+        placeholder="Select responsible engineer"
+        selectedLabel={
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.name ||
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.label ||
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.email ||
+          'Select responsible engineer'
+        }
+        options={employees.map((employee) => {
+          const employeeId = employee.id || employee._id;
+          return {
+            value: employeeId,
+            label: employee.name || employee.label || employee.email,
+          };
+        })}
+      />
       <Field label="Next Action">
         <input className="input" {...register('nextActionRequired')} />
       </Field>
@@ -202,26 +213,22 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
       <Field label="Estimated Completion">
         <input className="input" type="number" min="0" max="100" {...register('estimatedCompletion')} />
       </Field>
-      <Field label="Priority">
-        <select className="input" {...register('priority')}>
-          <option value="">Select priority</option>
-          {PRIORITY_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Invoice Status">
-        <select className="input" {...register('invoiceStatus')}>
-          <option value="">Select billing status</option>
-          {INVOICE_STATUS_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <DropdownField
+        label="Priority"
+        value={priority}
+        onChange={(nextValue) => setValue('priority', nextValue, { shouldDirty: true, shouldValidate: true })}
+        placeholder="Select priority"
+        selectedLabel={priority || 'Select priority'}
+        options={PRIORITY_OPTIONS.map((option) => ({ value: option, label: option }))}
+      />
+      <DropdownField
+        label="Invoice Status"
+        value={invoiceStatus}
+        onChange={(nextValue) => setValue('invoiceStatus', nextValue, { shouldDirty: true, shouldValidate: true })}
+        placeholder="Select billing status"
+        selectedLabel={invoiceStatus || 'Select billing status'}
+        options={INVOICE_STATUS_OPTIONS.map((option) => ({ value: option, label: option }))}
+      />
       <Field label="Received">
         <input className="input" type="number" step="0.01" {...register('recv')} />
       </Field>

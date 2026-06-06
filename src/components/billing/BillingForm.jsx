@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   project: z.string().min(1, 'Project is required'),
@@ -29,6 +30,8 @@ export function BillingForm({ initialValues, projects = [], onSubmit, onCancel }
       remarks: initialValues?.remarks || '',
     },
   });
+  const project = form.watch('project');
+  const billingStatus = form.watch('billingStatus');
 
   useEffect(() => {
     if (!initialValues) return;
@@ -56,26 +59,29 @@ export function BillingForm({ initialValues, projects = [], onSubmit, onCancel }
       )}
     >
       <Field label="Project" error={form.formState.errors.project?.message}>
-        <select className="input" {...form.register('project')}>
-          <option value="">Select project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.projectName || project.name}
-            </option>
-          ))}
-        </select>
+        <DropdownField
+          value={project}
+          onChange={(nextValue) => form.setValue('project', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={projects.map((projectItem) => ({
+            value: projectItem.id,
+            label: projectItem.projectName || projectItem.name,
+          }))}
+          placeholder="Select project"
+        />
       </Field>
       <Field label="Invoice No">
         <input className="input" {...form.register('invoiceNo')} />
       </Field>
       <Field label="Billing Status">
-        <select className="input" {...form.register('billingStatus')}>
-          {['Not Started', 'LOI Received', 'Advance Received', 'Mobilisation Advance Received', '1st Running Bill Submitted', '50% Received', 'Final Invoice Pending', 'Retention Refund Pending', 'Paid', 'Overdue'].map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
+        <DropdownField
+          value={billingStatus}
+          onChange={(nextValue) => form.setValue('billingStatus', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={['Not Started', 'LOI Received', 'Advance Received', 'Mobilisation Advance Received', '1st Running Bill Submitted', '50% Received', 'Final Invoice Pending', 'Retention Refund Pending', 'Paid', 'Overdue'].map((status) => ({
+            value: status,
+            label: status,
+          }))}
+          placeholder="Select billing status"
+        />
       </Field>
       <Field label="Total Value">
         <input className="input" type="number" step="0.01" {...form.register('amountTotal')} />

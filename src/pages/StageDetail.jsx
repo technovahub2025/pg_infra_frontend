@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, BookOpen, CheckCircle2, Clock3, Layers3, MapPin, Users } from 'lucide-react';
 import { pageVariants } from '../utils/motionVariants';
 import { useProjects } from '../hooks/useProjects';
@@ -16,21 +16,25 @@ import { Card, CardBody } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { EmptyState } from '../components/shared/EmptyState';
 import { ModalShell } from '../components/shared/ModalShell';
+import { DropdownField } from '../components/shared/DropdownField';
 
 export default function StageDetail() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: projects = [] } = useProjects();
   const { selectedProjectId, setSelectedProjectId } = useProjectStore();
+  const [localProjectId, setLocalProjectId] = useState(() => searchParams.get('project') || '');
   const { activeModal, modalData, openModal, closeModal, openConfirm } = useUiStore();
   const createStage = useCreateStage();
   const updateStage = useUpdateStage();
   const deleteStage = useDeleteStage();
   const approveStage = useApproveStage();
   const employeesQuery = useEmployees();
-  const selectedId = selectedProjectId || projects[0]?.id || '';
+  const urlProjectId = searchParams.get('project') || '';
+  const selectedId = localProjectId || urlProjectId || projects[0]?.id || '';
   const stagesQuery = useStages(selectedId);
   const employees = employeesQuery.data || [];
-  const selectedProject = projects.find((project) => project.id === selectedId) || null;
+  const selectedProject = projects.find((project) => String(project.id) === String(selectedId)) || null;
   const stageStats = {
     total: stagesQuery.data?.length || 0,
     completed: (stagesQuery.data || []).filter((stage) => String(stage.stageStatus).toLowerCase() === 'completed').length,
@@ -38,10 +42,25 @@ export default function StageDetail() {
   };
 
   useEffect(() => {
-    if (!selectedProjectId && projects[0]?.id) {
-      setSelectedProjectId(projects[0].id);
+    if (!urlProjectId && projects[0]?.id) {
+      const fallbackId = String(projects[0].id);
+      setLocalProjectId(fallbackId);
+      setSelectedProjectId(fallbackId);
+      navigate(`/stages?project=${encodeURIComponent(fallbackId)}`, { replace: true });
     }
-  }, [projects, selectedProjectId, setSelectedProjectId]);
+    if (urlProjectId && urlProjectId !== selectedProjectId) {
+      setLocalProjectId(urlProjectId);
+      setSelectedProjectId(urlProjectId);
+    }
+  }, [navigate, projects, selectedProjectId, setSelectedProjectId, urlProjectId]);
+
+  function handleProjectChange(nextValue) {
+    const projectId = String(nextValue || '');
+    setLocalProjectId(projectId);
+    setSelectedProjectId(projectId);
+    if (projectId) navigate(`/stages?project=${encodeURIComponent(projectId)}`, { replace: true });
+    else navigate('/stages', { replace: true });
+  }
 
   async function handleSave(values) {
     if (modalData?.id) {
@@ -118,17 +137,18 @@ export default function StageDetail() {
         <CardBody className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Project</div>
-            <select
-              className="input mt-2 min-w-[280px]"
-              value={selectedId}
-              onChange={(event) => setSelectedProjectId(event.target.value)}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.projectName}
-                </option>
-              ))}
-            </select>
+            <div className="mt-2 min-w-[280px]">
+              <DropdownField
+                value={selectedId}
+                onChange={handleProjectChange}
+                options={projects.map((project) => ({
+                  value: project.id,
+                  label: project.projectName,
+                }))}
+                placeholder="Select project"
+                selectedLabel={selectedProject?.projectName || 'Select project'}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => navigate('/stage-guide')}>

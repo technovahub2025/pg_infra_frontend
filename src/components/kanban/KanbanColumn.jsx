@@ -1,9 +1,11 @@
 import { useMemo, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { PencilLine, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { KanbanAddCard } from './KanbanAddCard';
 import { KanbanCard } from './KanbanCard';
+import { KanbanActionsMenu } from './KanbanActionsMenu';
 import { cn } from '../../lib/utils';
 
 const COLUMN_MAX_HEIGHT = 'h-[calc(100vh-22rem)] min-h-[28rem]';
@@ -18,6 +20,10 @@ export function KanbanColumn({
   onAdd,
   showProject = false,
   addCardProps = {},
+  onEditColumn,
+  onDeleteColumn,
+  onEditTask,
+  onDeleteTask,
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const scrollRef = useRef(null);
@@ -47,6 +53,30 @@ export function KanbanColumn({
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
         <div className="text-sm font-semibold text-[rgb(var(--text))]">{title}</div>
         <Badge className="ml-auto">{Number.isFinite(Number(count)) ? count : rows.length}</Badge>
+        {onEditColumn || onDeleteColumn ? (
+          <KanbanActionsMenu
+            triggerClassName="ml-1 h-7 w-7"
+            items={[
+              onEditColumn
+                ? {
+                    key: 'edit-column',
+                    label: 'Edit',
+                    icon: PencilLine,
+                    onClick: () => onEditColumn?.(id),
+                  }
+                : null,
+              onDeleteColumn
+                ? {
+                    key: 'delete-column',
+                    label: 'Delete',
+                    icon: Trash2,
+                    tone: 'danger',
+                    onClick: () => onDeleteColumn?.(id),
+                  }
+                : null,
+            ]}
+          />
+        ) : null}
       </div>
 
       <div ref={scrollRef} className="mt-3 flex-1 overflow-y-auto pr-1">
@@ -63,7 +93,7 @@ export function KanbanColumn({
                   className="absolute left-0 top-0 w-full pb-3"
                   style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
-                  <KanbanCard task={item} showProject={showProject} />
+                  <KanbanCard task={item} showProject={showProject} onEdit={onEditTask} onDelete={onDeleteTask} />
                 </div>
               );
             })}
@@ -71,7 +101,7 @@ export function KanbanColumn({
         ) : (
           <div className="space-y-3">
             {rows.map((item) => (
-              <KanbanCard key={item.id} task={item} showProject={showProject} />
+              <KanbanCard key={item.id} task={item} showProject={showProject} onEdit={onEditTask} onDelete={onDeleteTask} />
             ))}
           </div>
         )}

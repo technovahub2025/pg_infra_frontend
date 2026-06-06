@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
 import { ModalShell } from '../shared/ModalShell';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -48,11 +49,16 @@ export function InviteModal({ open, onClose, onSubmit, initialValues }) {
         <Field label="Name"><input className="input" {...form.register('name')} /></Field>
         <Field label="Email"><input className="input" {...form.register('email')} /></Field>
         <Field label="Role">
-          <select className="input" {...form.register('role')}>
-            <option value="employee">Employee</option>
-            <option value="admin">Admin</option>
-            <option value="project_manager">Project Manager</option>
-          </select>
+          <DropdownField
+            value={form.watch('role')}
+            onChange={(nextValue) => form.setValue('role', nextValue, { shouldDirty: true, shouldValidate: true })}
+            options={[
+              { value: 'employee', label: 'Employee' },
+              { value: 'admin', label: 'Admin' },
+              { value: 'project_manager', label: 'Project Manager' },
+            ]}
+            placeholder="Select role"
+          />
         </Field>
         <Field label="Phone"><input className="input" {...form.register('phone')} /></Field>
         <Field label="Designation"><input className="input" {...form.register('designation')} /></Field>

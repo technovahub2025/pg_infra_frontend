@@ -6,6 +6,7 @@ import { useTimer } from '../../hooks/useTimer';
 import { formatDuration } from '../../store/timerStore';
 import { ModalShell } from '../shared/ModalShell';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 export function TimerWidget() {
   const { activeLog, isRunning, elapsedSeconds, warningLevel, startTimer, stopTimer } = useTimer();
@@ -94,24 +95,29 @@ export function TimerWidget() {
       {selectorOpen ? (
         <ModalShell title="Start Timer" description="Pick a project and task." onClose={() => setSelectorOpen(false)} widthClassName="max-w-2xl">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Project</span>
-              <select className="input" value={projectId} onChange={(event) => { setProjectId(event.target.value); setTaskId(''); }}>
-                <option value="">Select project</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>{project.projectName}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Task</span>
-              <select className="input" value={taskId} onChange={(event) => setTaskId(event.target.value)}>
-                <option value="">Optional task</option>
-                {tasks.map((task) => (
-                  <option key={task.id} value={task.id}>{task.title}</option>
-                ))}
-              </select>
-            </label>
+            <DropdownField
+              label="Project"
+              value={projectId}
+              onChange={(nextValue) => {
+                setProjectId(nextValue);
+                setTaskId('');
+              }}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: project.projectName,
+              }))}
+              placeholder="Select project"
+            />
+            <DropdownField
+              label="Task"
+              value={taskId}
+              onChange={(nextValue) => setTaskId(nextValue)}
+              options={tasks.map((task) => ({
+                value: task.id,
+                label: task.title,
+              }))}
+              placeholder="Optional task"
+            />
             <div className="sm:col-span-2">
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Note</span>

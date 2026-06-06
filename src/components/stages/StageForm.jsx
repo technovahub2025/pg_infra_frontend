@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   stageNo: z.string().min(1),
@@ -25,7 +26,14 @@ const schema = z.object({
 });
 
 export function StageForm({ initialValues, employees = [], onSubmit, onCancel }) {
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       stageNo: 'Stage 1',
@@ -47,6 +55,7 @@ export function StageForm({ initialValues, employees = [], onSubmit, onCancel })
       duration: '',
     },
   });
+  const responsibleEngineer = watch('responsibleEngineer');
 
   useEffect(() => {
     if (initialValues) {
@@ -85,19 +94,26 @@ export function StageForm({ initialValues, employees = [], onSubmit, onCancel })
       <Field label="Approval Status"><input className="input" {...register('clientApprovalStatus')} /></Field>
       <Field label="Approval Date"><input className="input" type="date" {...register('clientApprovalDate')} /></Field>
       <Field label="Submitted To Client On"><input className="input" type="date" {...register('submittedToClientOn')} /></Field>
-      <Field label="Responsible Engineer">
-        <select className="input" {...register('responsibleEngineer')}>
-          <option value="">Unassigned</option>
-          {employees.map((employee) => {
-            const employeeId = employee.id || employee._id;
-            return (
-              <option key={employeeId} value={employeeId}>
-                {employee.name || employee.label || employee.email}
-              </option>
-            );
-          })}
-        </select>
-      </Field>
+      <DropdownField
+        label="Responsible Engineer"
+        value={responsibleEngineer}
+        onChange={(nextValue) => setValue('responsibleEngineer', nextValue, { shouldDirty: true, shouldValidate: true })}
+        placeholder="Unassigned"
+        selectedLabel={
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.name ||
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.label ||
+          employees.find((employee) => String(employee.id || employee._id) === String(responsibleEngineer))?.email ||
+          'Unassigned'
+        }
+        options={employees.map((employee) => {
+          const employeeId = employee.id || employee._id;
+          return {
+            value: employeeId,
+            label: employee.name || employee.label || employee.email,
+          };
+        })}
+        emptyValue=""
+      />
       <Field label="Approval Required"><input className="input" {...register('approvalRequired')} /></Field>
       <Field label="Disciplines" className="sm:col-span-2"><input className="input" {...register('disciplines')} /></Field>
       <Field label="Duration"><input className="input" {...register('duration')} /></Field>

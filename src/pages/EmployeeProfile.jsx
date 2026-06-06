@@ -17,6 +17,7 @@ import { TaskForm } from '../components/tasks/TaskForm';
 import { EmptyState } from '../components/shared/EmptyState';
 import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { ModalShell } from '../components/shared/ModalShell';
+import { DropdownField } from '../components/shared/DropdownField';
 import { Button } from '../components/ui/button';
 import { Card, CardBody } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -246,14 +247,18 @@ function EmployeeEditForm({ employee, onSubmit, onCancel }) {
       <Field label="Phone"><input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
       <Field label="Designation"><input className="input" value={designation} onChange={(e) => setDesignation(e.target.value)} /></Field>
       <Field label="Department">
-        <select className="input" value={department} onChange={(e) => setDepartment(e.target.value)}>
-          <option value="">Select</option>
-          <option value="Structural">Structural</option>
-          <option value="Architectural">Architectural</option>
-          <option value="Electrical">Electrical</option>
-          <option value="PEB">PEB</option>
-          <option value="Management">Management</option>
-        </select>
+        <DropdownField
+          value={department}
+          onChange={(nextValue) => setDepartment(nextValue)}
+          options={[
+            { value: 'Structural', label: 'Structural' },
+            { value: 'Architectural', label: 'Architectural' },
+            { value: 'Electrical', label: 'Electrical' },
+            { value: 'PEB', label: 'PEB' },
+            { value: 'Management', label: 'Management' },
+          ]}
+          placeholder="Select department"
+        />
       </Field>
       <div className="sm:col-span-2 flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>
@@ -268,11 +273,16 @@ function RoleChangeForm({ role, onSubmit, onCancel }) {
   return (
     <div className="space-y-4">
       <Field label="Role">
-        <select className="input" value={nextRole} onChange={(e) => setNextRole(e.target.value)}>
-          <option value="employee">Employee</option>
-          <option value="admin">Admin</option>
-          <option value="project_manager">Project Manager</option>
-        </select>
+        <DropdownField
+          value={nextRole}
+          onChange={(nextValue) => setNextRole(nextValue)}
+          options={[
+            { value: 'employee', label: 'Employee' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'project_manager', label: 'Project Manager' },
+          ]}
+          placeholder="Select role"
+        />
       </Field>
       <div className="flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
+import { DropdownField } from '../shared/DropdownField';
 
 const schema = z.object({
   projectId: z.string().min(1, 'Project is required'),
@@ -14,7 +15,7 @@ const schema = z.object({
 });
 
 export function TimerManualEntry({ projects = [], tasks = [], initialValues, onSubmit, onCancel }) {
-  const { register, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       projectId: '',
@@ -48,24 +49,29 @@ export function TimerManualEntry({ projects = [], tasks = [], initialValues, onS
       })}
     >
       <Field label="Project">
-        <select className="input" {...register('projectId')}>
-          <option value="">Select project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.projectName}
-            </option>
-          ))}
-        </select>
+        <DropdownField
+          value={watch('projectId')}
+          onChange={(nextValue) => {
+            setValue('projectId', nextValue, { shouldDirty: true, shouldValidate: true });
+            setValue('taskId', '', { shouldDirty: true, shouldValidate: true });
+          }}
+          options={projects.map((project) => ({
+            value: project.id,
+            label: project.projectName,
+          }))}
+          placeholder="Select project"
+        />
       </Field>
       <Field label="Task">
-        <select className="input" {...register('taskId')}>
-          <option value="">Optional task</option>
-          {filteredTasks.map((task) => (
-            <option key={task.id} value={task.id}>
-              {task.title}
-            </option>
-          ))}
-        </select>
+        <DropdownField
+          value={watch('taskId')}
+          onChange={(nextValue) => setValue('taskId', nextValue, { shouldDirty: true, shouldValidate: true })}
+          options={filteredTasks.map((task) => ({
+            value: task.id,
+            label: task.title,
+          }))}
+          placeholder="Optional task"
+        />
       </Field>
       <Field label="Start Time">
         <input type="datetime-local" className="input" {...register('startTime')} />

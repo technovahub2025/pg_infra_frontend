@@ -1,13 +1,14 @@
 import { memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { CalendarDays, GripVertical, Layers3, UserCircle2 } from 'lucide-react';
+import { CalendarDays, GripVertical, Layers3, PencilLine, Trash2, UserCircle2 } from 'lucide-react';
 import { Card, CardBody } from '../ui/card';
 import { TaskPriorityBadge } from '../tasks/TaskPriorityBadge';
 import { TaskStatusBadge } from '../tasks/TaskStatusBadge';
 import { TaskCountdown } from '../tasks/TaskCountdown';
+import { KanbanActionsMenu } from './KanbanActionsMenu';
 import { cn } from '../../lib/utils';
 
-function KanbanCardImpl({ task, showProject = false }) {
+function KanbanCardImpl({ task, showProject = false, onEdit, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task, showProject },
@@ -19,7 +20,6 @@ function KanbanCardImpl({ task, showProject = false }) {
       style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined }}
       className={cn('transition-transform', isDragging && 'opacity-55 scale-[0.98]')}
       {...attributes}
-      {...listeners}
     >
       <Card
         className={cn(
@@ -44,7 +44,40 @@ function KanbanCardImpl({ task, showProject = false }) {
                 )}
               </div>
             </div>
-            <GripVertical className="h-4 w-4 text-slate-500" />
+            <div className="flex items-center gap-1.5">
+              {onEdit || onDelete ? (
+                <KanbanActionsMenu
+                  triggerClassName="h-7 w-7"
+                  items={[
+                    onEdit
+                      ? {
+                          key: 'edit',
+                          label: 'Edit',
+                          icon: PencilLine,
+                          onClick: () => onEdit?.(task),
+                        }
+                      : null,
+                    onDelete
+                      ? {
+                          key: 'delete',
+                          label: 'Delete',
+                          icon: Trash2,
+                          tone: 'danger',
+                          onClick: () => onDelete?.(task),
+                        }
+                      : null,
+                  ]}
+                />
+              ) : null}
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Drag task"
+                {...listeners}
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {showProject ? (
@@ -97,6 +130,8 @@ function areEqual(prevProps, nextProps) {
   const next = nextProps.task || {};
   return (
     prevProps.showProject === nextProps.showProject &&
+    prevProps.onEdit === nextProps.onEdit &&
+    prevProps.onDelete === nextProps.onDelete &&
     prev.id === next.id &&
     prev.status === next.status &&
     prev.updatedAt === next.updatedAt &&
