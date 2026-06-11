@@ -1,4 +1,4 @@
-import { Users, Mail, Phone, BadgeInfo } from 'lucide-react';
+import { Users, Mail, Phone, BadgeInfo, Siren } from 'lucide-react';
 import { Card, CardBody } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -29,6 +29,7 @@ export function EmployeeCard({ employee, onEdit, onOpen, onDeactivate }) {
         <div className="space-y-2 text-sm text-slate-300">
           <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-slate-500" />{employee.email}</div>
           <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-slate-500" />{employee.phone || '-'}</div>
+          <div className="flex items-center gap-2"><Siren className="h-4 w-4 text-slate-500" />{employee.emergencyPhone || '-'}</div>
           <div className="flex items-center gap-2"><BadgeInfo className="h-4 w-4 text-slate-500" />{employee.department || '-'}</div>
         </div>
 

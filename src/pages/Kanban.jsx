@@ -32,12 +32,13 @@ const ROLE_MODE_VISIBILITY = {
 export default function Kanban() {
   const user = useAuthStore((state) => state.user);
   const role = user?.role || 'employee';
+  const canUseAdminBoards = ['superadmin', 'admin', 'project_manager'].includes(role);
   const [searchParams, setSearchParams] = useSearchParams();
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const projectDropdownRef = useRef(null);
-  const projectsQuery = useProjects();
+  const projectsQuery = useProjects({}, { enabled: canUseAdminBoards });
   const teamsQuery = useTeams();
-  const employeesQuery = useEmployees();
+  const employeesQuery = useEmployees({}, { enabled: canUseAdminBoards });
   const overviewQuery = useKanbanOverview();
   const myTasksQuery = useMyTasksKanban();
   const availableModes = ROLE_MODE_VISIBILITY[role] || ['mine'];
@@ -178,8 +179,8 @@ export default function Kanban() {
     };
   }, []);
 
-  const isLoading = projectsQuery.isLoading || teamsQuery.isLoading || employeesQuery.isLoading || overviewQuery.isLoading || myTasksQuery.isLoading || (activeMode === 'project' && projectTasksQuery.isLoading);
-  const isError = projectsQuery.isError || teamsQuery.isError || employeesQuery.isError || overviewQuery.isError || myTasksQuery.isError || (activeMode === 'project' && projectTasksQuery.isError);
+  const isLoading = (canUseAdminBoards && (projectsQuery.isLoading || employeesQuery.isLoading || overviewQuery.isLoading)) || teamsQuery.isLoading || myTasksQuery.isLoading || (activeMode === 'project' && projectTasksQuery.isLoading);
+  const isError = (canUseAdminBoards && (projectsQuery.isError || employeesQuery.isError || overviewQuery.isError)) || teamsQuery.isError || myTasksQuery.isError || (activeMode === 'project' && projectTasksQuery.isError);
   const errorMessage = projectsQuery.error?.message || teamsQuery.error?.message || employeesQuery.error?.message || overviewQuery.error?.message || myTasksQuery.error?.message || projectTasksQuery.error?.message;
 
   return (

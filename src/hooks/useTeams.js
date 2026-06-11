@@ -1,20 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { normalizeTeam } from '../lib/phase2';
 import { teamsService } from '../services/teamsService';
 
-export function useTeams(params = {}) {
+export function useTeams(params = {}, queryOptions = {}) {
   return useQuery({
     queryKey: ['teams', params],
-    queryFn: () => teamsService.list(params),
+    queryFn: async () => {
+      const rows = await teamsService.list(params);
+      return rows.map(normalizeTeam);
+    },
     staleTime: 60_000,
+    ...queryOptions,
   });
 }
 
-export function useTeam(id) {
+export function useTeam(id, queryOptions = {}) {
   return useQuery({
     queryKey: ['team', id],
     enabled: Boolean(id),
-    queryFn: () => teamsService.get(id),
+    queryFn: async () => normalizeTeam(await teamsService.get(id)),
+    ...queryOptions,
   });
 }
 
@@ -30,6 +36,7 @@ export function useCreateTeam() {
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks-kanban'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -49,6 +56,7 @@ export function useUpdateTeam() {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['employee-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['employee-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -68,6 +76,7 @@ export function useDeleteTeam() {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['employee-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['employee-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -87,6 +96,7 @@ export function useAddTeamMembers() {
       queryClient.invalidateQueries({ queryKey: ['project-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks-kanban'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -106,6 +116,7 @@ export function useRemoveTeamMember() {
       queryClient.invalidateQueries({ queryKey: ['project-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks-kanban'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }

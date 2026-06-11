@@ -53,4 +53,24 @@ export const taskService = {
     const response = await api.post(`/tasks/${id}/comments`, payload);
     return unwrap(response);
   },
+
+  async requestTimeExtension(id, payload) {
+    const response = await api.post(`/tasks/${id}/time-extension-requests`, payload);
+    return unwrap(response);
+  },
+
+  async pendingTimeExtensionRequests() {
+    const response = await api.get('/tasks/time-extension-requests/pending');
+    return unwrap(response);
+  },
+
+  async approveTimeExtensionRequest(requestId, payload) {
+    const response = await api.put(`/tasks/time-extension-requests/${requestId}/approve`, payload);
+    return unwrap(response);
+  },
+
+  async rejectTimeExtensionRequest(requestId, payload) {
+    const response = await api.put(`/tasks/time-extension-requests/${requestId}/reject`, payload);
+    return unwrap(response);
+  },
 };

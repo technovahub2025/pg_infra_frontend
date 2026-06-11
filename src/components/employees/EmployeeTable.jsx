@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BadgeInfo, Building2, CircleUserRound, Mail, Phone, PencilLine, RefreshCw, ShieldX, Trash2, UserRound } from 'lucide-react';
+import { BadgeInfo, Building2, CircleUserRound, Mail, Phone, PencilLine, RefreshCw, ShieldX, Siren, Trash2, UserRound } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { KanbanActionsMenu } from '../kanban/KanbanActionsMenu';
 import { DataTable } from '../shared/DataTable';
@@ -65,12 +65,23 @@ export function EmployeeTable({ rows = [], onEdit, onOpen, onToggleStatus, onDel
       },
       {
         key: 'phone',
-        label: 'Phone',
+        label: 'Mobile',
         className: 'min-w-[180px]',
         render: (row) => (
           <span className="inline-flex min-w-0 items-center gap-2 text-[rgb(var(--text))]">
             <Phone className="h-4 w-4 shrink-0 text-slate-400" />
             <span className="truncate">{row.phone || '-'}</span>
+          </span>
+        ),
+      },
+      {
+        key: 'emergencyPhone',
+        label: 'Emergency',
+        className: 'min-w-[180px]',
+        render: (row) => (
+          <span className="inline-flex min-w-0 items-center gap-2 text-[rgb(var(--text))]">
+            <Siren className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="truncate">{row.emergencyPhone || '-'}</span>
           </span>
         ),
       },

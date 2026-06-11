@@ -9,7 +9,7 @@ export function DataTable({
   return (
     <div className={`overflow-x-auto ${scrollClassName}`.trim()}>
       <table className="min-w-full text-left text-sm">
-        <thead className={`border-b border-white/10 text-[10px] uppercase tracking-[0.2em] text-slate-500 ${stickyHeader ? 'sticky top-0 z-10 bg-[rgb(var(--panel)/0.98)] backdrop-blur' : ''}`}>
+        <thead className={`border-b border-[rgb(var(--line)/0.12)] text-[10px] uppercase tracking-[0.2em] text-slate-500 ${stickyHeader ? 'sticky top-0 z-10 bg-[rgb(var(--panel)/0.98)] backdrop-blur' : ''}`}>
           <tr>
             {columns.map((column) => (
               <th
@@ -24,7 +24,7 @@ export function DataTable({
         <tbody>
           {rows.length ? (
             rows.map((row, index) => (
-              <tr key={rowKey(row, index)} className="border-b border-white/5 transition hover:bg-white/5">
+              <tr key={rowKey(row, index)} className="border-b border-[rgb(var(--line)/0.06)] transition hover:bg-[rgb(var(--panel-2)/0.7)]">
                 {columns.map((column) => (
                   <td
                     key={column.key}

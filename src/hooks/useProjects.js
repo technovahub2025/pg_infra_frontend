@@ -3,6 +3,11 @@ import toast from 'react-hot-toast';
 import { normalizeProject } from '../lib/phase2';
 import { projectService } from '../services/projectService';
 import { useProjectStore } from '../store/projectStore';
+import { useAuthStore } from '../store/authStore';
+
+function canReadProjectList(role) {
+  return ['superadmin', 'admin', 'project_manager'].includes(role);
+}
 
 async function loadProjects(filters = {}) {
   const rows = await projectService.list(filters);
@@ -21,10 +26,12 @@ function sanitizeProjectFilters(filters = {}) {
 
 export function useProjects(extraFilters = {}, queryOptions = {}) {
   const filters = useProjectStore((state) => state.filters);
+  const role = useAuthStore((state) => state.user?.role);
   const merged = sanitizeProjectFilters({ ...filters, ...extraFilters });
 
   return useQuery({
     queryKey: ['projects', merged],
+    enabled: Boolean(role && canReadProjectList(role)) && (queryOptions.enabled ?? true),
     queryFn: () => loadProjects(merged),
     ...queryOptions,
   });
@@ -86,6 +93,7 @@ export function useCreateProject() {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project-summary'] });
       queryClient.invalidateQueries({ queryKey: ['kanban-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -112,6 +120,7 @@ export function useUpdateProject() {
       queryClient.invalidateQueries({ queryKey: ['project', variables?.id] });
       queryClient.invalidateQueries({ queryKey: ['project-summary', variables?.id] });
       queryClient.invalidateQueries({ queryKey: ['kanban-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -133,6 +142,7 @@ export function useDeleteProject() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['kanban-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -144,6 +154,7 @@ export function useReorderProjects() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['kanban-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }

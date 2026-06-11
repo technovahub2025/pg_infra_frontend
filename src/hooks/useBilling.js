@@ -32,6 +32,7 @@ export function useCreateInvoice() {
       toast.success('Invoice created');
       queryClient.invalidateQueries({ queryKey: ['billing'] });
       queryClient.invalidateQueries({ queryKey: ['billing-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -44,6 +45,7 @@ export function useUpdateInvoice() {
       toast.success('Invoice updated');
       queryClient.invalidateQueries({ queryKey: ['billing'] });
       queryClient.invalidateQueries({ queryKey: ['billing-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -56,6 +58,7 @@ export function useDeleteInvoice() {
       toast.success('Invoice deleted');
       queryClient.invalidateQueries({ queryKey: ['billing'] });
       queryClient.invalidateQueries({ queryKey: ['billing-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }

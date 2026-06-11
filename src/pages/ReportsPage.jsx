@@ -1,1236 +1,990 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Activity,
-  BadgeDollarSign,
-  BarChart3,
-  Banknote,
-  Check,
-  CircleDollarSign,
-  ChevronDown,
-  Layers3,
-  Filter,
-  PieChart as PieChartIcon,
-  SlidersHorizontal,
-  TrendingUp,
-  Users,
-} from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  Brush,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  LabelList,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { useEngineerUtilization, useReportOverview, useRevenueTrend, useStageCompletion } from '../hooks/useReports';
-import { pageVariants } from '../utils/motionVariants';
+import { Loader2, RefreshCcw } from 'lucide-react';
+import { KPISection } from '../components/reports/KPISection';
+import { StatusDonutChart as ProjectStatusChart } from '../components/reports/StatusDonutChart';
+import { TaskStatusChart as TaskProgressChart } from '../components/reports/TaskStatusChart';
+import { RevenueTrendChart } from '../components/reports/RevenueTrendChart';
+import { EngineerUtilizationChart as EmployeeUtilizationChart } from '../components/reports/EngineerUtilizationChart';
+import { ClientContributionChart } from '../components/reports/ClientContributionChart';
+import { TimesheetAnalyticsChart } from '../components/reports/TimesheetAnalyticsChart';
+import { ReportFilters } from '../components/reports/ReportFilters';
+import { ExportDropdown } from '../components/reports/ExportDropdown';
+import { ReportTable } from '../components/reports/ReportTable';
+import { Card, CardBody } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { ExportButton } from '../components/shared/ExportButton';
-import { Card, CardBody, CardHeader, CardTitle } from '../components/ui/card';
-import { SkeletonCard } from '../components/shared/SkeletonCard';
-import { VirtualList } from '../components/shared/VirtualList';
-import { exportWorkbookToExcel } from '../utils/exportUtils';
+import { useReportsBundle } from '../hooks/useReports';
+import { useProjects } from '../hooks/useProjects';
+import { useClients } from '../hooks/useClients';
+import { useTeams } from '../hooks/useTeams';
+import { pageVariants, staggerContainer, staggerItem } from '../utils/motionVariants';
+import { exportRowsToCsv, exportRowsToPdf, exportRowsToExcel, exportWorkbookToCsv, exportWorkbookToExcel, exportWorkbookToPdf } from '../utils/exportUtils';
+import { formatCompactCurrency, formatHours } from '../components/reports/chartUtils';
 
-const STATUS_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-const PRIORITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
-const PRIORITY_COLORS = {
-  Critical: '#ef4444',
-  High: '#f97316',
-  Medium: '#3b82f6',
-  Low: '#10b981',
+const DEFAULT_FILTERS = {
+  period: 'all',
+  from: '',
+  to: '',
+  project: '',
+  client: '',
+  team: '',
+  projectStatuses: [],
+  priorities: [],
+  taskStatuses: [],
 };
-const TASK_ORDER = ['todo', 'in-progress', 'review', 'done'];
-const TASK_COLORS = {
-  todo: '#3b82f6',
-  'in-progress': '#f59e0b',
-  review: '#8b5cf6',
-  done: '#10b981',
-};
-const SECTION_OPTIONS = [
-  { id: 'all', label: 'All reports', icon: SlidersHorizontal },
-  { id: 'overview', label: 'Overview', icon: PieChartIcon },
-  { id: 'finance', label: 'Finance', icon: BadgeDollarSign },
-  { id: 'delivery', label: 'Delivery', icon: BarChart3 },
-  { id: 'team', label: 'Team', icon: Users },
-];
-const DENSITY_OPTIONS = [
-  {
-    id: 'compact',
-    label: 'Compact',
-    description: 'Fastest mode for 1000+ rows. Charts are capped and lists are trimmed to the most useful items.',
-    chartLimit: 12,
-    listLimit: 25,
-  },
-  {
-    id: 'balanced',
-    label: 'Balanced',
-    description: 'Default mode. Good balance between detail and performance.',
-    chartLimit: 24,
-    listLimit: 100,
-  },
-  {
-    id: 'full',
-    label: 'Full detail',
-    description: 'Shows the fullest available dataset while keeping long lists virtualized.',
-    chartLimit: 48,
-    listLimit: Infinity,
-  },
-];
-const TEAM_SORT_OPTIONS = [
-  { id: 'hours', label: 'Sort by hours' },
-  { id: 'projects', label: 'Sort by projects' },
+
+const KPI_ORDER = [
+  { key: 'totalProjects', title: 'Total Projects' },
+  { key: 'activeTasks', title: 'Active Tasks' },
+  { key: 'totalEmployees', title: 'Total Employees' },
+  { key: 'revenue', title: 'Revenue' },
+  { key: 'billableHours', title: 'Billable Hours' },
+  { key: 'pendingInvoices', title: 'Pending Invoices' },
 ];
 
-export default function ReportsPage() {
-  const [activeSection, setActiveSection] = useState('all');
-  const [activeDensity, setActiveDensity] = useState('balanced');
-  const [reportPeriod, setReportPeriod] = useState('last12');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
-  const [teamSortBy, setTeamSortBy] = useState('hours');
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const filtersRef = useRef(null);
-
-  const reportParams = useMemo(() => {
-    if (reportPeriod === 'custom') {
-      return {
-        from: customFrom || undefined,
-        to: customTo || undefined,
-      };
-    }
-
-    if (reportPeriod === 'all') return {};
-
-    return { period: reportPeriod };
-  }, [customFrom, customTo, reportPeriod]);
-
-  const overviewQuery = useReportOverview(reportParams);
-  const revenueQuery = useRevenueTrend(reportParams);
-  const stageQuery = useStageCompletion(reportParams);
-  const engineerQuery = useEngineerUtilization(reportParams);
-
-  const overview = overviewQuery.data || {};
-  const billing = overview.billing || { received: 0, balance: 0, total: 0 };
-
-  const statusRows = useMemo(
-    () =>
-      Object.entries(overview.byStatus || {})
-        .map(([name, value], index) => ({
-          name,
-          value: Number(value || 0),
-          color: STATUS_COLORS[index % STATUS_COLORS.length],
-        }))
-        .sort((a, b) => b.value - a.value),
-    [overview.byStatus],
-  );
-
-  const priorityRows = useMemo(
-    () =>
-      PRIORITY_ORDER.map((name) => ({
-        name,
-        value: Number(overview.byPriority?.[name] || 0),
-        color: PRIORITY_COLORS[name],
-      })),
-    [overview.byPriority],
-  );
-
-  const taskRows = useMemo(
-    () =>
-      TASK_ORDER.map((name) => ({
-        name,
-        label: prettyLabel(name),
-        value: Number(overview.byTaskStatus?.[name] || 0),
-        color: TASK_COLORS[name],
-      })),
-    [overview.byTaskStatus],
-  );
-
-  const revenueRows = useMemo(() => {
-    const rows = Array.isArray(revenueQuery.data) ? revenueQuery.data : [];
-    return rows.map((row) => ({
-      month: prettyMonth(row.month),
-      received: Number(row.received || 0),
-      balance: Number(row.balance || 0),
-      total: Number(row.total || 0),
-      rawMonth: row.month,
-    }));
-  }, [revenueQuery.data]);
-  const hasRevenueSinglePoint = revenueRows.length === 1;
-
-  const stageRows = useMemo(() => {
-    const rows = Array.isArray(stageQuery.data?.stages) ? stageQuery.data.stages : [];
-    return rows
-      .map((row) => {
-        const values = Object.values(row.stages || {}).map((value) => Number(value || 0));
-        const average = values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
-        const peakEntry = Object.entries(row.stages || {}).sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))[0];
-
-        return {
-          id: row.projectId,
-          projectName: row.projectName,
-          average,
-          peakStage: peakEntry?.[0] || 'No stage',
-          stages: row.stages || {},
-        };
-      })
-      .sort((a, b) => b.average - a.average);
-  }, [stageQuery.data]);
-
-  const deferredDensity = useDeferredValue(activeDensity);
-  const deferredTeamSortBy = useDeferredValue(teamSortBy);
-  const densityConfig = useMemo(
-    () => DENSITY_OPTIONS.find((option) => option.id === deferredDensity) || DENSITY_OPTIONS[1],
-    [deferredDensity],
-  );
-
-  const engineerRows = useMemo(() => {
-    const rows = (Array.isArray(engineerQuery.data) ? engineerQuery.data : []).map((row) => ({
-      name: row.name,
-      projects: Number(row.projects || 0),
-      hours: Number(row.hours || 0),
-    }));
-
-    return rows.sort((a, b) =>
-      deferredTeamSortBy === 'projects'
-        ? b.projects - a.projects || b.hours - a.hours
-        : b.hours - a.hours || b.projects - a.projects,
-    );
-  }, [deferredTeamSortBy, engineerQuery.data]);
-
-  const stageChartRows = useMemo(
-    () => stageRows.slice(0, densityConfig.chartLimit),
-    [densityConfig.chartLimit, stageRows],
-  );
-
-  const stageDisplayRows = useMemo(
-    () => (densityConfig.listLimit === Infinity ? stageRows : stageRows.slice(0, densityConfig.listLimit)),
-    [densityConfig.listLimit, stageRows],
-  );
-
-  const engineerChartRows = useMemo(
-    () => sampleRows(engineerRows, densityConfig.chartLimit),
-    [densityConfig.chartLimit, engineerRows],
-  );
-
-  const engineerDisplayRows = useMemo(
-    () => (densityConfig.listLimit === Infinity ? engineerRows : engineerRows.slice(0, densityConfig.listLimit)),
-    [densityConfig.listLimit, engineerRows],
-  );
-
-  const totalProjects = Number(overview.totalProjects || 0);
-  const totalTasks = taskRows.reduce((sum, row) => sum + row.value, 0);
-  const completedProjects = Number(overview.byStatus?.Completed || 0);
-  const completionRate = totalProjects ? Math.round((completedProjects / totalProjects) * 100) : 0;
-  const revenueCoverage = Number(billing.total || 0) ? Math.round((Number(billing.received || 0) / Number(billing.total || 0)) * 100) : 0;
-  const averageStageCompletion = stageRows.length
-    ? Math.round(stageRows.reduce((sum, row) => sum + row.average, 0) / stageRows.length)
-    : 0;
-  const peakRevenueMonth = revenueRows.reduce(
-    (best, row) => (row.received > best.received ? row : best),
-    revenueRows[0] || { month: 'No data', received: 0 },
-  );
-  const topEngineer = engineerRows[0] || { name: 'No data', projects: 0, hours: 0 };
-
-  const loading = overviewQuery.isLoading || revenueQuery.isLoading || stageQuery.isLoading || engineerQuery.isLoading;
-  const error = overviewQuery.error || revenueQuery.error || stageQuery.error || engineerQuery.error;
-
-  useEffect(() => {
-    if (!filtersOpen) return undefined;
-
-    function handlePointerDown(event) {
-      if (!filtersRef.current?.contains(event.target)) {
-        setFiltersOpen(false);
-      }
-    }
-
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setFiltersOpen(false);
-      }
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [filtersOpen]);
-
-  const showAll = activeSection === 'all';
-  const showOverview = showAll || activeSection === 'overview';
-  const showFinance = showAll || activeSection === 'finance';
-  const showDelivery = showAll || activeSection === 'delivery';
-  const showTeam = showAll || activeSection === 'team';
-  const periodLabel = {
-    all: 'All time',
-    last12: 'Last 12 months',
-    'this-year': 'This year',
-    custom: 'Custom range',
-  }[reportPeriod] || 'Last 12 months';
-
-  function buildExportSheets() {
-    const sheets = [
-      {
-        name: 'Summary',
-        rows: [
-          { metric: 'Projects', value: totalProjects },
-          { metric: 'Tasks', value: totalTasks },
-          { metric: 'Completed projects', value: completedProjects },
-          { metric: 'Completion rate', value: `${completionRate}%` },
-          { metric: 'Received', value: billing.received },
-          { metric: 'Outstanding', value: billing.balance },
-          { metric: 'Total billed', value: billing.total },
-          { metric: 'Coverage', value: `${revenueCoverage}%` },
-          { metric: 'Avg stage completion', value: `${averageStageCompletion}%` },
-          { metric: 'Top engineer', value: topEngineer.name },
-        ],
-      },
-      {
-        name: 'Project Status',
-        rows: statusRows.map((row) => ({ status: prettyLabel(row.name), projects: row.value })),
-      },
-      {
-        name: 'Priority',
-        rows: priorityRows.map((row) => ({ priority: row.name, projects: row.value })),
-      },
-      {
-        name: 'Task Status',
-        rows: taskRows.map((row) => ({ status: row.label, tasks: row.value })),
-      },
-      {
-        name: 'Revenue Trend',
-        rows: revenueRows.map((row) => ({
-          month: row.month,
-          received: row.received,
-          balance: row.balance,
-          total: row.total,
-        })),
-      },
-      {
-        name: 'Engineer Utilization',
-        rows: engineerRows.map((row) => ({
-          engineer: row.name,
-          projects: row.projects,
-          hours: row.hours,
-        })),
-      },
-      {
-        name: 'Stage Completion',
-        rows: stageRows.map((row) => ({
-          project: row.projectName,
-          average: row.average,
-          peakStage: row.peakStage,
-          ...row.stages,
-        })),
-      },
-    ];
-
-    if (activeSection === 'all') return sheets;
-    if (showOverview) return sheets.slice(0, 3);
-    if (showFinance) return [sheets[0], sheets[3], sheets[4]];
-    if (showDelivery) return [sheets[0], sheets[1], sheets[2], sheets[3], sheets[6]];
-    if (showTeam) return [sheets[0], sheets[5]];
-    return sheets;
-  }
-
-  async function handleExport() {
-    setIsExporting(true);
-    try {
-      const sectionName =
-        activeSection === 'all'
-          ? 'all'
-          : activeSection === 'overview'
-            ? 'overview'
-            : activeSection === 'finance'
-              ? 'finance'
-              : activeSection === 'delivery'
-              ? 'delivery'
-                : 'team';
-      exportWorkbookToExcel(buildExportSheets(), `reports-${sectionName}-${densityConfig.id}.xlsx`);
-    } finally {
-      setIsExporting(false);
-    }
-  }
-
-  if (loading) return <SkeletonCard />;
-
-  if (error) {
-    return (
-      <Card>
-        <CardBody className="flex items-center gap-3 py-10">
-          <BarChart3 className="h-5 w-5 text-rose-400" />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-[rgb(var(--text))]">
-              {error?.message || 'Failed to load reports'}
-            </div>
-            <div className="text-xs text-slate-500">Try again after a moment.</div>
-          </div>
-        </CardBody>
-      </Card>
-    );
-  }
-
-  return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6 pb-8">
-      <section className="relative z-20 overflow-visible theme-hero theme-hero-slate p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="hero-kicker">Reports</p>
-            <h1 className="hero-title">Reports and analytics</h1>
-            <p className="hero-subtitle max-w-3xl">
-              Modern performance dashboards for status, priority, revenue, stage progression, and team utilization.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative" ref={filtersRef}>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((open) => !open)}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--line)/0.14)] bg-white/80 px-3 py-2 text-sm font-semibold text-[rgb(var(--text))] shadow-sm transition hover:border-sky-200 hover:bg-sky-50/80"
-                aria-expanded={filtersOpen}
-                aria-haspopup="menu"
-                aria-busy={isPending}
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-600">
-                  {periodLabel}
-                </span>
-                <ChevronDown className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {filtersOpen ? (
-                <div className="absolute right-0 top-full z-50 mt-3 w-[560px] max-w-[calc(100vw-1rem)] rounded-[1.4rem] border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel)/0.98)] p-3 shadow-2xl backdrop-blur-xl">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Period</div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {[
-                      { id: 'all', label: 'All time', description: 'No date limit.' },
-                      { id: 'last12', label: 'Last 12 months', description: 'Best default for large year-over-year reporting.' },
-                      { id: 'this-year', label: 'This year', description: 'Current calendar year only.' },
-                      { id: 'custom', label: 'Custom range', description: 'Pick exact from/to dates.' },
-                    ].map((option) => {
-                      const active = reportPeriod === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            startTransition(() => setReportPeriod(option.id));
-                            if (option.id !== 'custom') setFiltersOpen(false);
-                          }}
-                          className={`flex h-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${
-                            active
-                              ? 'border-sky-300 bg-sky-50/80 text-sky-700'
-                              : 'border-[rgb(var(--line)/0.12)] bg-white/70 text-[rgb(var(--text))] hover:border-sky-200 hover:bg-sky-50/60'
-                          }`}
-                        >
-                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-600">
-                            {active ? <Check className="h-3.5 w-3.5" /> : <Filter className="h-3.5 w-3.5" />}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold">{option.label}</span>
-                            <span className="mt-1 block text-xs text-slate-500">{option.description}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {reportPeriod === 'custom' ? (
-                    <div className="mt-3 border-t border-[rgb(var(--line)/0.12)] pt-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block">
-                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">From</span>
-                          <input
-                            type="date"
-                            value={customFrom}
-                            onChange={(event) => setCustomFrom(event.target.value)}
-                            className="input h-11 py-2"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">To</span>
-                          <input
-                            type="date"
-                            value={customTo}
-                            onChange={(event) => setCustomTo(event.target.value)}
-                            className="input h-11 py-2"
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-2 text-xs text-slate-500">
-                        Custom ranges are sent to the backend, so only matching records are fetched.
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="mt-3 border-t border-[rgb(var(--line)/0.12)] pt-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Density</div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {DENSITY_OPTIONS.map((option) => {
-                        const active = activeDensity === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => {
-                              startTransition(() => setActiveDensity(option.id));
-                              setFiltersOpen(false);
-                            }}
-                            className={`flex h-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${
-                              active
-                                ? 'border-sky-300 bg-sky-50/80 text-sky-700'
-                                : 'border-[rgb(var(--line)/0.12)] bg-white/70 text-[rgb(var(--text))] hover:border-sky-200 hover:bg-sky-50/60'
-                            }`}
-                          >
-                            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-600">
-                              {active ? <Check className="h-3.5 w-3.5" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold">{option.label}</span>
-                              <span className="mt-1 block text-xs text-slate-500">{option.description}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 border-t border-[rgb(var(--line)/0.12)] pt-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Team sort</div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {TEAM_SORT_OPTIONS.map((option) => {
-                        const active = teamSortBy === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => {
-                              startTransition(() => setTeamSortBy(option.id));
-                              setFiltersOpen(false);
-                            }}
-                            className={`inline-flex items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
-                              active
-                                ? 'border-sky-300 bg-sky-100 text-sky-700'
-                                : 'border-[rgb(var(--line)/0.12)] bg-white/70 text-[rgb(var(--text))] hover:border-sky-200 hover:bg-sky-50/60'
-                            }`}
-                          >
-                            {active ? <Check className="mr-2 h-4 w-4" /> : null}
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      startTransition(() => {
-                        setReportPeriod('last12');
-                        setCustomFrom('');
-                        setCustomTo('');
-                        setActiveDensity('balanced');
-                        setTeamSortBy('hours');
-                      });
-                      setFiltersOpen(false);
-                    }}
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-dashed border-[rgb(var(--line)/0.16)] bg-white/70 px-3 py-2 text-sm font-semibold text-slate-500 transition hover:border-sky-200 hover:bg-sky-50/60 hover:text-sky-700"
-                  >
-                    Reset filters
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <ExportButton onClick={handleExport} disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export'}
-            </ExportButton>
-            <Badge tone="slate" className="gap-1.5">
-              <Activity className="h-3.5 w-3.5" />
-              Live dashboard
-            </Badge>
-            <Badge tone="blue" className="gap-1.5">
-              <Layers3 className="h-3.5 w-3.5" />
-              {totalProjects} projects
-            </Badge>
-            <Badge tone="green" className="gap-1.5">
-              <CircleDollarSign className="h-3.5 w-3.5" />
-              {formatCurrency(billing.received)} received
-            </Badge>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Layers3} label="Projects" value={totalProjects} hint={`${completedProjects} completed`} tone="blue" />
-        <MetricCard icon={BarChart3} label="Tasks" value={totalTasks} hint="Across all statuses" tone="amber" />
-        <MetricCard
-          icon={BadgeDollarSign}
-          label="Received"
-          value={formatCurrency(billing.received)}
-          hint={`${revenueCoverage}% of billed total`}
-          tone="emerald"
-        />
-        <MetricCard icon={Banknote} label="Outstanding" value={formatCurrency(billing.balance)} hint="Unpaid invoices" tone="rose" />
-      </section>
-
-      <Card>
-        <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Dataset focus</div>
-            <div className="mt-1 text-sm text-slate-500">
-              Switch between data families to reduce visual noise when you are working with larger datasets.
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {SECTION_OPTIONS.map((option) => {
-              const Icon = option.icon;
-              const active = activeSection === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setActiveSection(option.id)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                    active
-                      ? 'border-sky-300 bg-sky-100 text-sky-700 shadow-sm'
-                      : 'border-[rgb(var(--line)/0.14)] bg-white/70 text-[rgb(var(--text))] hover:border-sky-200 hover:bg-sky-50/70'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </CardBody>
-      </Card>
-
-      {showOverview ? (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
-                  <PieChartIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Project status composition</CardTitle>
-                  <p className="text-xs text-slate-500">
-                    Current distribution of live project states.
-                    {stageRows.length > stageChartRows.length ? ` Showing top ${stageChartRows.length} of ${stageRows.length}.` : ''}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <div className="relative h-[320px]">
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={statusRows}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={76}
-                      outerRadius={118}
-                      paddingAngle={4}
-                      stroke="transparent"
-                    >
-                      {statusRows.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Completion</div>
-                  <div className="mt-1 text-4xl font-semibold text-[rgb(var(--text))]">{completionRate}%</div>
-                  <div className="mt-1 text-xs text-slate-500">{completedProjects} completed projects</div>
-                </div>
-              </div>
-              <div className="flex flex-col justify-center gap-2">
-                {statusRows.length ? (
-                  statusRows.map((row) => (
-                    <div key={row.name} className="flex items-center justify-between gap-3 rounded-2xl border border-[rgb(var(--line)/0.12)] bg-white/70 px-3 py-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.color }} />
-                        <span className="truncate text-sm font-medium text-[rgb(var(--text))]">{prettyLabel(row.name)}</span>
-                      </div>
-                      <div className="text-sm font-semibold text-[rgb(var(--text))]">{row.value}</div>
-                    </div>
-                  ))
-                ) : (
-                  <EmptyChartState label="No status data" />
-                )}
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                  <TrendingUp className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Priority distribution</CardTitle>
-                  <p className="text-xs text-slate-500">Weighted backlog pressure across all priorities.</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="h-[390px]">
-              <div className="h-[320px]">
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={priorityRows} layout="vertical" margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
-                    <defs>
-                      {priorityRows.map((row) => (
-                        <linearGradient key={row.name} id={`priority-${row.name}`} x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor={row.color} stopOpacity={0.7} />
-                          <stop offset="100%" stopColor={row.color} stopOpacity={1} />
-                        </linearGradient>
-                      ))}
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
-                    <YAxis type="category" dataKey="name" width={92} tickLine={false} axisLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" radius={[0, 12, 12, 0]}>
-                      {priorityRows.map((row) => (
-                        <Cell key={row.name} fill={`url(#priority-${row.name})`} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
-        </section>
-      ) : null}
-
-      {showFinance ? (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                  <TrendingUp className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Revenue trend</CardTitle>
-                  <p className="text-xs text-slate-500">
-                    Received vs balance over time. Peak month: {peakRevenueMonth.month}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="h-[390px]">
-              <div className="h-[320px]">
-                <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={revenueRows} margin={{ top: 28, right: 24, left: 8, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="receivedFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
-                      </linearGradient>
-                      <linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.28} />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} minTickGap={24} tickFormatter={(value) => truncateChartLabel(value, 12)} />
-                    <YAxis
-                      width={96}
-                      tickMargin={10}
-                      tickFormatter={formatCompactCurrency}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip content={<ChartTooltip currency />} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="received"
-                      name="Received"
-                      stroke="#10b981"
-                      fill="url(#receivedFill)"
-                      strokeWidth={4}
-                      dot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }}
-                      activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2 }}
-                    />
-                    <LabelList
-                      dataKey="received"
-                      position="top"
-                      offset={12}
-                      formatter={(value) => formatCurrency(value)}
-                      style={{ fill: '#10b981', fontSize: 11, fontWeight: 600 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="balance"
-                      name="Balance"
-                      stroke="#ef4444"
-                      fill="url(#balanceFill)"
-                      strokeWidth={4}
-                      dot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#ef4444' }}
-                      activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2 }}
-                    />
-                    <LabelList
-                      dataKey="balance"
-                      position="top"
-                      offset={12}
-                      formatter={(value) => formatCurrency(value)}
-                      style={{ fill: '#ef4444', fontSize: 11, fontWeight: 600 }}
-                    />
-                    {revenueRows.length > 12 && densityConfig.id === 'full' ? <Brush dataKey="month" height={22} travellerWidth={10} /> : null}
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              {hasRevenueSinglePoint ? (
-                <div className="rounded-2xl border border-dashed border-[rgb(var(--line)/0.14)] bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
-                  Only one revenue period is available, so direct value labels are shown to keep the amounts visible.
-                </div>
-              ) : null}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                  <BadgeDollarSign className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Financial snapshot</CardTitle>
-                  <p className="text-xs text-slate-500">Fast view of billing totals and the strongest month.</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MetricInline label="Total billed" value={formatCurrency(billing.total)} />
-                <MetricInline label="Received" value={formatCurrency(billing.received)} />
-                <MetricInline label="Outstanding" value={formatCurrency(billing.balance)} />
-                <MetricInline label="Coverage" value={`${revenueCoverage}%`} />
-              </div>
-              <div className="rounded-2xl border border-[rgb(var(--line)/0.12)] bg-white/75 p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Peak month</div>
-                <div className="mt-1 text-sm font-semibold text-[rgb(var(--text))]">{peakRevenueMonth.month}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Highest received value at {formatCurrency(peakRevenueMonth.received)}
-                </div>
-              </div>
-              <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
-                {revenueRows.length ? (
-                  revenueRows.slice(-6).map((row) => (
-                    <div key={row.rawMonth} className="flex items-center justify-between gap-3 rounded-2xl border border-[rgb(var(--line)/0.12)] bg-slate-50/70 px-3 py-2">
-                      <div className="text-sm font-medium text-[rgb(var(--text))]">{row.month}</div>
-                      <div className="text-xs text-slate-500">
-                        <span className="font-semibold text-emerald-600">{formatCurrency(row.received)}</span> /{' '}
-                        <span className="font-semibold text-rose-600">{formatCurrency(row.balance)}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <EmptyChartState label="No revenue data" />
-                )}
-              </div>
-            </CardBody>
-          </Card>
-        </section>
-      ) : null}
-
-      {showDelivery ? (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                  <Activity className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Task flow by status</CardTitle>
-                  <p className="text-xs text-slate-500">Operational pipeline across task states.</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="h-[390px]">
-              <div className="h-[320px]">
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={taskRows} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tickFormatter={(value) => truncateChartLabel(value, 14)} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" radius={[12, 12, 0, 0]}>
-                      {taskRows.map((row) => (
-                        <Cell key={row.name} fill={row.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
-                  <BarChart3 className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Stage completion heatmap</CardTitle>
-                  <p className="text-xs text-slate-500">
-                    Average stage progression by project with a scrollable stage matrix for deeper inspection.
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-              <div className="h-[360px] min-w-0">
-                <ResponsiveContainer width="100%" height={360}>
-                  <BarChart data={stageChartRows} layout="vertical" margin={{ top: 8, right: 20, left: 12, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tickLine={false} axisLine={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="projectName"
-                      width={180}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      tickMargin={12}
-                      tickFormatter={(value) => truncateChartLabel(value, 20)}
-                    />
-                    <Tooltip content={<ChartTooltip percent />} />
-                    <Bar dataKey="average" radius={[0, 12, 12, 0]}>
-                      {stageChartRows.map((row, index) => (
-                        <Cell key={row.id || row.projectName} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone="blue">Avg {averageStageCompletion}%</Badge>
-                  <Badge tone="emerald">{stageRows.length} projects</Badge>
-                  <Badge tone="slate">Top: {stageRows[0]?.projectName || 'N/A'}</Badge>
-                </div>
-                <div className="max-h-[330px] space-y-3 overflow-y-auto pr-1">
-                  {stageDisplayRows.length ? (
-                    stageDisplayRows.length > 8 ? (
-                      <VirtualList
-                        items={stageDisplayRows}
-                        estimateSize={164}
-                        className="h-[330px]"
-                        renderItem={(row) => <StageSummaryRow row={row} />}
-                      />
-                    ) : (
-                      stageDisplayRows.map((row) => <StageSummaryRow key={row.id || row.projectName} row={row} />)
-                    )
-                  ) : (
-                    <EmptyChartState label="No stage completion data" />
-                  )}
-                </div>
-                {stageDisplayRows.length < stageRows.length ? (
-                  <div className="rounded-2xl border border-dashed border-[rgb(var(--line)/0.14)] bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
-                    Showing {stageDisplayRows.length} of {stageRows.length} projects in {densityConfig.label.toLowerCase()} mode.
-                  </div>
-                ) : null}
-              </div>
-            </CardBody>
-          </Card>
-        </section>
-      ) : null}
-
-      {showTeam ? (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
-                  <Users className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Engineer utilization</CardTitle>
-                  <p className="text-xs text-slate-500">
-                    Projects handled and hours logged by each engineer.
-                    {engineerRows.length > engineerChartRows.length ? ` Showing a sampled chart of ${engineerChartRows.length} engineers.` : ''}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="h-[390px]">
-              <div className="h-[320px]">
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={engineerChartRows} margin={{ top: 12, right: 24, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} minTickGap={24} tickFormatter={(value) => truncateChartLabel(value, 12)} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} allowDecimals={false} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} allowDecimals />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Legend />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="projects"
-                      name="Projects"
-                      stroke="#3b82f6"
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="hours"
-                      name="Hours"
-                      stroke="#10b981"
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    {engineerRows.length > 12 && densityConfig.id === 'full' ? <Brush dataKey="name" height={22} travellerWidth={10} /> : null}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                  <Users className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle>Team capacity snapshot</CardTitle>
-                  <p className="text-xs text-slate-500">Sorted by hours so high-load engineers stay visible.</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MetricInline label="Engineers" value={engineerRows.length} />
-                <MetricInline label="Top engineer" value={topEngineer.name} />
-              </div>
-              <div className="max-h-[290px] space-y-2 overflow-y-auto pr-1">
-                {engineerDisplayRows.length ? (
-                  engineerDisplayRows.map((engineer, index) => (
-                    <div
-                      key={engineer.name}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-[rgb(var(--line)/0.12)] bg-white/75 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-[rgb(var(--text))]">{engineer.name}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {engineer.projects} projects • {engineer.hours} hours
-                        </div>
-                      </div>
-                      <Badge tone={index === 0 ? 'green' : 'slate'}>{index === 0 ? 'Top load' : 'Active'}</Badge>
-                    </div>
-                  ))
-                ) : (
-                  <EmptyChartState label="No utilization data" />
-                )}
-              </div>
-              {engineerDisplayRows.length < engineerRows.length ? (
-                <div className="rounded-2xl border border-dashed border-[rgb(var(--line)/0.14)] bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
-                  Showing {engineerDisplayRows.length} of {engineerRows.length} engineers in {densityConfig.label.toLowerCase()} mode.
-                </div>
-              ) : null}
-            </CardBody>
-          </Card>
-        </section>
-      ) : null}
-    </motion.div>
-  );
+function toInputDate(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
 }
 
-function MetricCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
-  const toneStyles = {
-    blue: 'bg-sky-100 text-sky-600',
-    amber: 'bg-amber-100 text-amber-600',
-    emerald: 'bg-emerald-100 text-emerald-600',
-    rose: 'bg-rose-100 text-rose-600',
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfDay(date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function endOfDay(date) {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+function resolveRange(filters) {
+  const period = String(filters.period || 'all').toLowerCase();
+  const now = new Date();
+
+  if (period === 'custom') {
+    const from = parseDate(filters.from);
+    const to = parseDate(filters.to);
+    if (!from || !to) return null;
+    return {
+      from: startOfDay(from),
+      to: endOfDay(to),
+    };
+  }
+
+  switch (period) {
+    case 'last-12-months': {
+      const from = new Date(now);
+      from.setMonth(from.getMonth() - 12);
+      return { from: startOfDay(from), to: endOfDay(now) };
+    }
+    case 'this-year':
+      return { from: startOfDay(new Date(now.getFullYear(), 0, 1)), to: endOfDay(now) };
+    case 'last-30-days': {
+      const from = new Date(now);
+      from.setDate(from.getDate() - 30);
+      return { from: startOfDay(from), to: endOfDay(now) };
+    }
+    default:
+      return null;
+  }
+}
+
+function buildQueryParams(filters) {
+  const params = {};
+  const range = resolveRange(filters);
+
+  if (filters.period && filters.period !== 'all' && filters.period !== 'custom') {
+    params.period = filters.period;
+  }
+
+  if (range && filters.period === 'custom') {
+    params.from = toInputDate(range.from);
+    params.to = toInputDate(range.to);
+  }
+
+  if (filters.project) params.project = filters.project;
+  if (filters.project) params.projectId = filters.project;
+  if (filters.client) params.client = filters.client;
+  if (filters.client) params.clientId = filters.client;
+  if (filters.team) params.team = filters.team;
+  if (filters.team) params.teamId = filters.team;
+  if (filters.projectStatuses?.length) params.status = filters.projectStatuses.join(',');
+  if (filters.priorities?.length) params.priority = filters.priorities.join(',');
+  if (filters.taskStatuses?.length) params.taskStatus = filters.taskStatuses.join(',');
+
+  return params;
+}
+
+function buildPreviousQueryParams(filters) {
+  const range = resolveRange(filters);
+  if (!range) return null;
+
+  const duration = range.to.getTime() - range.from.getTime();
+  if (duration <= 0) return null;
+
+  const previousTo = new Date(range.from.getTime() - 1);
+  const previousFrom = new Date(previousTo.getTime() - duration);
+
+  const params = {
+    from: toInputDate(previousFrom),
+    to: toInputDate(previousTo),
   };
 
+  if (filters.project) params.project = filters.project;
+  if (filters.project) params.projectId = filters.project;
+  if (filters.client) params.client = filters.client;
+  if (filters.client) params.clientId = filters.client;
+  if (filters.team) params.team = filters.team;
+  if (filters.team) params.teamId = filters.team;
+  if (filters.projectStatuses?.length) params.status = filters.projectStatuses.join(',');
+  if (filters.priorities?.length) params.priority = filters.priorities.join(',');
+  if (filters.taskStatuses?.length) params.taskStatus = filters.taskStatuses.join(',');
+
+  return params;
+}
+
+function formatDateTime(value) {
+  if (!value) return '__';
+  return new Intl.DateTimeFormat('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function getPercentChange(current, previous) {
+  const currentValue = Number(current || 0);
+  const previousValue = Number(previous || 0);
+  if (previousValue === 0) return currentValue > 0 ? 100 : 0;
+  return ((currentValue - previousValue) / previousValue) * 100;
+}
+
+function formatCount(value) {
+  return Number(value || 0).toLocaleString('en-IN');
+}
+
+function normalizeProjectStatusBucket(label = '') {
+  const text = String(label || '').toLowerCase();
+  if (/(complete|done|closed|resolved)/.test(text)) return 'Completed';
+  if (/(hold|paused|pause|waiting)/.test(text)) return 'On Hold';
+  if (/(delay|delayed|late|overdue|risk|blocked|cancel)/.test(text)) return 'Delayed';
+  return 'Active';
+}
+
+function buildProjectStatusRows(statusMap = {}) {
+  const buckets = {
+    Active: 0,
+    Completed: 0,
+    Delayed: 0,
+    'On Hold': 0,
+  };
+
+  Object.entries(statusMap || {}).forEach(([label, value]) => {
+    const bucket = normalizeProjectStatusBucket(label);
+    buckets[bucket] += Number(value || 0);
+  });
+
+  return Object.entries(buckets).map(([name, value]) => ({ name, value }));
+}
+
+function buildTaskProgressRows(taskProgress = {}) {
+  return [
+    { name: 'completed', value: Number(taskProgress.completed || 0) },
+    { name: 'inProgress', value: Number(taskProgress.inProgress || 0) },
+    { name: 'pending', value: Number(taskProgress.pending || 0) },
+    { name: 'overdue', value: Number(taskProgress.overdue || 0) },
+  ];
+}
+
+function buildExportWorkbook({
+  kpis,
+  projectStatusRows,
+  taskProgressRows,
+  revenueRows,
+  utilizationRows,
+  clientContributionRows,
+  timesheetRows,
+  summaryRows,
+  metadataRows,
+  filterRows,
+  rawData,
+}) {
+  const rawProjects = Array.isArray(rawData?.projects) ? rawData.projects : [];
+  const rawTasks = Array.isArray(rawData?.tasks) ? rawData.tasks : [];
+  const rawInvoices = Array.isArray(rawData?.invoices) ? rawData.invoices : [];
+  const rawTimerLogs = Array.isArray(rawData?.timerLogs) ? rawData.timerLogs : [];
+  const rawEmployees = Array.isArray(rawData?.employees) ? rawData.employees : [];
+  const rawClients = Array.isArray(rawData?.clients) ? rawData.clients : [];
+  const rawTeams = Array.isArray(rawData?.teams) ? rawData.teams : [];
+
+  return [
+    {
+      name: 'Report Metadata',
+      rows: metadataRows,
+      columns: [
+        { label: 'Field', value: 'field' },
+        { label: 'Value', value: 'value' },
+      ],
+    },
+    {
+      name: 'Filters',
+      rows: filterRows,
+      columns: [
+        { label: 'Filter', value: 'filter' },
+        { label: 'Value', value: 'value' },
+      ],
+    },
+    {
+      name: 'KPIs',
+      rows: kpis,
+      columns: [
+        { label: 'Metric', value: 'title' },
+        { label: 'Value', value: 'value' },
+        { label: 'Previous', value: 'previousValue' },
+        { label: 'Trend %', value: (row) => `${row.trend > 0 ? '+' : ''}${Number(row.trend || 0).toFixed(1)}%` },
+      ],
+    },
+    {
+      name: 'Project Status',
+      rows: projectStatusRows,
+      columns: [
+        { label: 'Status', value: 'name' },
+        { label: 'Projects', value: 'value' },
+      ],
+    },
+    {
+      name: 'Task Progress',
+      rows: taskProgressRows,
+      columns: [
+        { label: 'Status', value: (row) => row.name },
+        { label: 'Tasks', value: 'value' },
+      ],
+    },
+    {
+      name: 'Revenue Trend',
+      rows: revenueRows,
+      columns: [
+        { label: 'Month', value: 'month' },
+        { label: 'Revenue', value: 'revenue' },
+        { label: 'Collections', value: 'collections' },
+        { label: 'Balance', value: 'balance' },
+      ],
+    },
+    {
+      name: 'Employee Utilization',
+      rows: utilizationRows,
+      columns: [
+        { label: 'Employee', value: 'name' },
+        { label: 'Utilization %', value: 'utilization' },
+        { label: 'Projects', value: 'projects' },
+        { label: 'Hours', value: 'hours' },
+      ],
+    },
+    {
+      name: 'Client Contribution',
+      rows: clientContributionRows,
+      columns: [
+        { label: 'Client', value: 'clientName' },
+        { label: 'Revenue', value: 'revenue' },
+        { label: 'Billed', value: 'billed' },
+        { label: 'Outstanding', value: 'outstanding' },
+        { label: 'Projects', value: 'projectCount' },
+      ],
+    },
+    {
+      name: 'Timesheet Analytics',
+      rows: timesheetRows,
+      columns: [
+        { label: 'Month', value: 'month' },
+        { label: 'Logged Hours', value: 'loggedHours' },
+        { label: 'Billable Hours', value: 'billableHours' },
+      ],
+    },
+    {
+      name: 'Summary',
+      rows: summaryRows,
+      columns: [
+        { label: 'Report Name', value: 'name' },
+        { label: 'Last Updated', value: 'updatedAt' },
+        { label: 'Status', value: 'status' },
+      ],
+    },
+    {
+      name: 'Raw Projects',
+      rows: rawProjects,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'S.No', value: 'sNo' },
+        { label: 'Project Name', value: 'projectName' },
+        { label: 'Client Name', value: 'clientName' },
+        { label: 'Segment', value: 'companySegment' },
+        { label: 'Project Type', value: 'projectType' },
+        { label: 'Location', value: 'location' },
+        { label: 'Start Date', value: 'startDate' },
+        { label: 'Target Date', value: 'targetDate' },
+        { label: 'Actual End', value: 'actualEnd' },
+        { label: 'Project Value', value: 'projectValue' },
+        { label: 'Status', value: 'overallStatus' },
+        { label: 'Current Stage', value: 'currentStage' },
+        { label: 'Stage Completion', value: 'stageCompletion' },
+        { label: 'Client Approval', value: 'clientApprovalStatus' },
+        { label: 'Approval Date', value: 'clientApprovalDate' },
+        { label: 'Next Action', value: 'nextActionRequired' },
+        { label: 'Responsible Engineer', value: 'responsibleEngineer' },
+        { label: 'Assigned Team', value: 'assignedTeam' },
+        { label: 'Remarks', value: 'remarks' },
+        { label: 'Blockers', value: 'blockers' },
+        { label: 'Remarks Or Blockers', value: 'remarksOrBlockers' },
+        { label: 'CEO/MD Review', value: 'ceoMdReview' },
+        { label: 'Priority', value: 'priority' },
+        { label: 'Invoice Status', value: 'invoiceStatus' },
+        { label: 'Estimated Completion', value: 'estimatedCompletion' },
+        { label: 'Received', value: 'recv' },
+        { label: 'Balance', value: 'balance' },
+        { label: 'Archived', value: 'isArchived' },
+        { label: 'Created By', value: 'createdBy' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Tasks',
+      rows: rawTasks,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'Title', value: 'title' },
+        { label: 'Description', value: 'description' },
+        { label: 'Start Date', value: 'startDate' },
+        { label: 'Project', value: 'project' },
+        { label: 'Stage', value: 'stage' },
+        { label: 'Assignee', value: 'assignee' },
+        { label: 'Team', value: 'team' },
+        { label: 'Assigned Team', value: 'assignedTeam' },
+        { label: 'Backup Reviewer', value: 'backupReviewer' },
+        { label: 'Priority', value: 'priority' },
+        { label: 'Status', value: 'status' },
+        { label: 'Due Date', value: 'dueDate' },
+        { label: 'Completed At', value: 'completedAt' },
+        { label: 'Estimated Duration (Min)', value: 'estimatedDurationMinutes' },
+        { label: 'Timer Started At', value: 'timerStartedAt' },
+        { label: 'Timer Expires At', value: 'timerExpiresAt' },
+        { label: 'Timer Status', value: 'timerStatus' },
+        { label: 'Extra Time Granted (Min)', value: 'extraTimeMinutesGranted' },
+        { label: 'Active Timer Log', value: 'activeTimerLog' },
+        { label: 'Next Action', value: 'nextAction' },
+        { label: 'Tags', value: 'tags' },
+        { label: 'Attachments', value: 'attachments' },
+        { label: 'Comments', value: 'comments' },
+        { label: 'Order', value: 'order' },
+        { label: 'Total Time Logged', value: 'totalTimeLogged' },
+        { label: 'Created By', value: 'createdBy' },
+        { label: 'Reporter', value: 'reporter' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Invoices',
+      rows: rawInvoices,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'Project', value: 'project' },
+        { label: 'Invoice No', value: 'invoiceNo' },
+        { label: 'Billing Status', value: 'billingStatus' },
+        { label: 'Amount Total', value: 'amountTotal' },
+        { label: 'Amount Received', value: 'amountReceived' },
+        { label: 'Balance', value: 'balance' },
+        { label: 'Due Date', value: 'dueDate' },
+        { label: 'Paid Date', value: 'paidDate' },
+        { label: 'Remarks', value: 'remarks' },
+        { label: 'Payment History', value: 'paymentHistory' },
+        { label: 'Created By', value: 'createdBy' },
+        { label: 'Updated By', value: 'updatedBy' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Timer Logs',
+      rows: rawTimerLogs,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'User', value: 'user' },
+        { label: 'Task', value: 'task' },
+        { label: 'Project', value: 'project' },
+        { label: 'Stage', value: 'stage' },
+        { label: 'Start Time', value: 'startTime' },
+        { label: 'End Time', value: 'endTime' },
+        { label: 'Duration (Seconds)', value: 'durationSeconds' },
+        { label: 'Note', value: 'note' },
+        { label: 'Date', value: 'date' },
+        { label: 'Manual', value: 'isManual' },
+        { label: 'Active', value: 'isActive' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Employees',
+      rows: rawEmployees,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'Employee ID', value: 'employeeId' },
+        { label: 'Name', value: 'name' },
+        { label: 'Email', value: 'email' },
+        { label: 'Role', value: 'role' },
+        { label: 'Avatar', value: 'avatar' },
+        { label: 'Phone', value: 'phone' },
+        { label: 'Emergency Phone', value: 'emergencyPhone' },
+        { label: 'Designation', value: 'designation' },
+        { label: 'Department', value: 'department' },
+        { label: 'Joining Date', value: 'joiningDate' },
+        { label: 'Active', value: 'isActive' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Clients',
+      rows: rawClients,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'Client Name', value: 'clientName' },
+        { label: 'Contact Person', value: 'contactPerson' },
+        { label: 'Email', value: 'email' },
+        { label: 'Phone', value: 'phone' },
+        { label: 'Company Name', value: 'companyName' },
+        { label: 'Segment', value: 'segment' },
+        { label: 'Address', value: 'address' },
+        { label: 'City', value: 'city' },
+        { label: 'Status', value: 'status' },
+        { label: 'Notes', value: 'notes' },
+        { label: 'Project IDs', value: 'projectIds' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+    {
+      name: 'Raw Teams',
+      rows: rawTeams,
+      columns: [
+        { label: 'ID', value: 'id' },
+        { label: 'Name', value: 'name' },
+        { label: 'Description', value: 'description' },
+        { label: 'Color', value: 'color' },
+        { label: 'Members', value: 'members' },
+        { label: 'Project IDs', value: 'projectIds' },
+        { label: 'Created By', value: 'createdBy' },
+        { label: 'Active', value: 'isActive' },
+        { label: 'Created At', value: 'createdAt' },
+        { label: 'Updated At', value: 'updatedAt' },
+      ],
+    },
+  ];
+}
+
+function ChartSkeleton() {
   return (
-    <Card>
-      <CardBody className="flex items-start justify-between gap-3 p-4">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-          <div className="mt-2 text-2xl font-semibold text-[rgb(var(--text))]">{value}</div>
-          <div className="mt-1 text-xs text-slate-500">{hint}</div>
-        </div>
-        <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${toneStyles[tone] || toneStyles.blue}`}>
-          <Icon className="h-5 w-5" />
-        </span>
+    <Card className="h-full border border-[rgb(var(--line)/0.12)]">
+      <CardBody className="animate-pulse p-5">
+        <div className="h-4 w-40 rounded bg-[rgb(var(--line)/0.18)]" />
+        <div className="mt-2 h-3 w-64 rounded bg-[rgb(var(--line)/0.12)]" />
+        <div className="mt-6 h-[280px] rounded-2xl bg-[rgb(var(--panel-2)/0.6)]" />
       </CardBody>
     </Card>
   );
 }
 
-function MetricInline({ label, value }) {
+function KpiSkeleton() {
   return (
-    <div className="rounded-2xl border border-[rgb(var(--line)/0.12)] bg-slate-50/70 px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-      <div className="mt-1 truncate text-sm font-semibold text-[rgb(var(--text))]">{value}</div>
-    </div>
-  );
-}
-
-function StageSummaryRow({ row }) {
-  return (
-    <div className="rounded-2xl border border-[rgb(var(--line)/0.12)] bg-white/75 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-[rgb(var(--text))]">{row.projectName}</div>
-          <div className="mt-1 text-xs text-slate-500">Strongest stage: {row.peakStage}</div>
+    <Card className="h-full border border-[rgb(var(--line)/0.12)]">
+      <CardBody className="animate-pulse p-5">
+        <div className="flex items-start justify-between">
+          <div className="h-3 w-24 rounded bg-[rgb(var(--line)/0.18)]" />
+          <div className="h-11 w-11 rounded-2xl bg-[rgb(var(--line)/0.12)]" />
         </div>
-        <Badge tone={row.average >= 80 ? 'green' : row.average >= 50 ? 'amber' : 'rose'}>{row.average}%</Badge>
+        <div className="mt-5 h-8 w-32 rounded bg-[rgb(var(--line)/0.12)]" />
+        <div className="mt-6 h-3 w-28 rounded bg-[rgb(var(--line)/0.12)]" />
+        <div className="mt-2 h-3 w-20 rounded bg-[rgb(var(--line)/0.12)]" />
+      </CardBody>
+    </Card>
+  );
+}
+
+export default function ReportsPage() {
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+
+  const queryParams = useMemo(() => buildQueryParams(filters), [filters]);
+  const projectsQuery = useProjects({}, { staleTime: 300_000, refetchOnWindowFocus: false });
+  const clientsQuery = useClients({}, { staleTime: 300_000, refetchOnWindowFocus: false });
+  const teamsQuery = useTeams({}, { staleTime: 300_000, refetchOnWindowFocus: false });
+
+  const bundleQuery = useReportsBundle(queryParams, { refetchOnWindowFocus: false });
+  const reportBundle = bundleQuery.data || {};
+  const rawData = reportBundle.rawData || {};
+
+  const overview = reportBundle.overview || {};
+  const previousOverview = reportBundle.previousOverview || null;
+
+  const projectStatusRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.projectStatus) ? reportBundle.projectStatus : [];
+    return rows.length ? rows : buildProjectStatusRows(overview.byStatus || {});
+  }, [overview.byStatus, reportBundle.projectStatus]);
+  const taskProgressRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.taskProgress) ? reportBundle.taskProgress : [];
+    return rows.length ? rows : buildTaskProgressRows(overview.taskProgress || {});
+  }, [overview.taskProgress, reportBundle.taskProgress]);
+  const revenueRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.revenueTrend) ? reportBundle.revenueTrend : [];
+    return rows.map((row) => ({
+      month: row.month,
+      revenue: Number(row.revenue || row.total || 0),
+      collections: Number(row.collections || row.received || 0),
+      balance: Number(row.balance || 0),
+    }));
+  }, [reportBundle.revenueTrend]);
+  const utilizationRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.engineerUtilization) ? reportBundle.engineerUtilization : [];
+    return rows
+      .slice()
+      .sort((a, b) => Number(b.utilization || 0) - Number(a.utilization || 0))
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        utilization: Number(row.utilization || 0),
+        projects: Number(row.projects || 0),
+        hours: Number(row.hours || 0),
+      }));
+  }, [reportBundle.engineerUtilization]);
+  const clientContributionRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.clientContribution) ? reportBundle.clientContribution : [];
+    return rows
+      .slice()
+      .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))
+      .map((row) => ({
+        clientName: row.clientName,
+        revenue: Number(row.revenue || 0),
+        billed: Number(row.billed || 0),
+        outstanding: Number(row.outstanding || 0),
+        projectCount: Number(row.projectCount || 0),
+      }));
+  }, [reportBundle.clientContribution]);
+  const timesheetRows = useMemo(() => {
+    const rows = Array.isArray(reportBundle.timesheetAnalytics) ? reportBundle.timesheetAnalytics : [];
+    return rows.map((row) => ({
+      month: row.month,
+      loggedHours: Number(row.loggedHours || 0),
+      billableHours: Number(row.billableHours || 0),
+    }));
+  }, [reportBundle.timesheetAnalytics]);
+
+  const projectOptions = useMemo(
+    () =>
+      (projectsQuery.data || [])
+        .map((project) => ({
+          value: project._id || project.dbId || project.id,
+          label: `${project.projectName || project.name || 'Untitled Project'}${project.clientName ? ` • ${project.clientName}` : ''}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [projectsQuery.data],
+  );
+  const clientOptions = useMemo(
+    () =>
+      (clientsQuery.data || [])
+        .map((client) => ({
+          value: client._id || client.dbId || client.id,
+          label: `${client.clientName || 'Untitled Client'}${client.companyName ? ` • ${client.companyName}` : ''}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [clientsQuery.data],
+  );
+  const teamOptions = useMemo(
+    () =>
+      (teamsQuery.data || [])
+        .map((team) => ({
+          value: team._id || team.dbId || team.id,
+          label: `${team.name || 'Untitled Team'}${team.memberCount ? ` • ${team.memberCount} members` : ''}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [teamsQuery.data],
+  );
+
+  const currentKpis = useMemo(() => {
+    const hasComparison = Boolean(previousOverview);
+    const comparison = previousOverview || {};
+    const current = {
+      totalProjects: Number(overview.totalProjects || 0),
+      activeTasks: Number(overview.activeTasks || 0),
+      totalEmployees: Number(overview.totalEmployees || 0),
+      revenue: Number(overview.revenue || 0),
+      billableHours: Number(overview.billableHours || 0),
+      pendingInvoices: Number(overview.pendingInvoices || 0),
+    };
+
+    const previous = {
+      totalProjects: Number(comparison.totalProjects || 0),
+      activeTasks: Number(comparison.activeTasks || 0),
+      totalEmployees: Number(comparison.totalEmployees || 0),
+      revenue: Number(comparison.revenue || 0),
+      billableHours: Number(comparison.billableHours || 0),
+      pendingInvoices: Number(comparison.pendingInvoices || 0),
+    };
+
+    return KPI_ORDER.map((item) => {
+      const currentValue = current[item.key];
+      const previousValue = previous[item.key];
+      const trend = getPercentChange(currentValue, previousValue);
+
+      let value = formatCount(currentValue);
+      let previousLabel = formatCount(previousValue);
+
+      if (item.key === 'revenue') {
+        value = formatCompactCurrency(currentValue);
+        previousLabel = formatCompactCurrency(previousValue);
+      } else if (item.key === 'billableHours') {
+        value = formatHours(currentValue);
+        previousLabel = formatHours(previousValue);
+      }
+
+      return {
+        ...item,
+        value,
+        previousValue: hasComparison ? previousLabel : '__',
+        trend: hasComparison ? trend : 0,
+        trendLabel: hasComparison ? 'vs previous period' : 'No comparison period',
+      };
+    });
+  }, [overview, previousOverview]);
+
+  const lastSyncAt = useMemo(() => {
+    if (reportBundle.meta?.generatedAt) return reportBundle.meta.generatedAt;
+    return bundleQuery.dataUpdatedAt || null;
+  }, [bundleQuery.dataUpdatedAt, reportBundle.meta?.generatedAt]);
+
+  const metadataRows = useMemo(
+    () => [
+      { field: 'Generated At', value: formatDateTime(lastSyncAt) },
+      { field: 'Mode', value: filters.period === 'custom' ? 'Custom range' : filters.period === 'all' ? 'All time' : filters.period.replace(/-/g, ' ') },
+      { field: 'Projects In Scope', value: formatCount(reportBundle.meta?.counts?.projects ?? projectOptions.length) },
+      { field: 'Tasks In Scope', value: formatCount(reportBundle.meta?.counts?.tasks ?? 0) },
+      { field: 'Invoices', value: formatCount(reportBundle.meta?.counts?.invoices ?? 0) },
+      { field: 'Timer Logs', value: formatCount(reportBundle.meta?.counts?.timerLogs ?? 0) },
+      { field: 'Employees', value: formatCount(reportBundle.meta?.counts?.employees ?? 0) },
+      { field: 'Clients', value: formatCount(clientOptions.length) },
+      { field: 'Teams', value: formatCount(teamOptions.length) },
+    ],
+    [clientOptions.length, filters.period, lastSyncAt, projectOptions.length, reportBundle.meta?.counts?.employees, reportBundle.meta?.counts?.invoices, reportBundle.meta?.counts?.projects, reportBundle.meta?.counts?.tasks, reportBundle.meta?.counts?.timerLogs, teamOptions.length],
+  );
+
+  const filterRows = useMemo(
+    () => [
+      { filter: 'Period', value: filters.period },
+      { filter: 'From', value: filters.from || '-' },
+      { filter: 'To', value: filters.to || '-' },
+      { filter: 'Project', value: filters.project || 'All' },
+      { filter: 'Client', value: filters.client || 'All' },
+      { filter: 'Team', value: filters.team || 'All' },
+      { filter: 'Project Statuses', value: filters.projectStatuses?.length ? filters.projectStatuses.join(', ') : 'All' },
+      { filter: 'Priorities', value: filters.priorities?.length ? filters.priorities.join(', ') : 'All' },
+      { filter: 'Task Statuses', value: filters.taskStatuses?.length ? filters.taskStatuses.join(', ') : 'All' },
+    ],
+    [filters],
+  );
+
+  const liveState = {
+    isLoading: bundleQuery.isLoading,
+    isFetching: bundleQuery.isFetching,
+    hasError: bundleQuery.isError,
+    errorMessage: bundleQuery.error?.message || 'Failed to load reports',
+  };
+
+  function getSectionStatus(rows) {
+    if (liveState.hasError) return { status: 'Error', statusTone: 'rose' };
+    if (liveState.isFetching) return { status: 'Refreshing', statusTone: 'amber' };
+    const hasData = Array.isArray(rows) ? rows.some((row) => Object.values(row).some((value) => Number(value) > 0)) : Boolean(rows);
+    return hasData ? { status: 'Live', statusTone: 'green' } : { status: 'Empty', statusTone: 'slate' };
+  }
+
+  const summaryRows = useMemo(
+    () =>
+      [
+        {
+          key: 'project-status',
+          name: 'Project status overview',
+          description: 'Active, completed, delayed, and on hold projects from the live portfolio.',
+          rows: projectStatusRows,
+        },
+        {
+          key: 'task-progress',
+          name: 'Task progress',
+          description: 'Task completion mix including pending and overdue work.',
+          rows: taskProgressRows,
+        },
+        {
+          key: 'revenue-trend',
+          name: 'Revenue trend',
+          description: 'Monthly revenue and collections over the selected reporting window.',
+          rows: revenueRows,
+        },
+        {
+          key: 'employee-utilization',
+          name: 'Employee utilization',
+          description: 'Utilization ranking by team member hours and assigned projects.',
+          rows: utilizationRows,
+        },
+        {
+          key: 'client-contribution',
+          name: 'Client contribution',
+          description: 'Revenue concentration by client and outstanding billing exposure.',
+          rows: clientContributionRows,
+        },
+        {
+          key: 'timesheet-analytics',
+          name: 'Timesheet analytics',
+          description: 'Logged vs billable hours from the timer log stream.',
+          rows: timesheetRows,
+        },
+      ].map((row) => ({
+        ...row,
+        ...getSectionStatus(row.rows),
+        updatedAt: formatDateTime(lastSyncAt),
+      })),
+    [clientContributionRows, lastSyncAt, liveState.hasError, liveState.isFetching, projectStatusRows, revenueRows, taskProgressRows, timesheetRows, utilizationRows],
+  );
+
+  const exportBundle = useMemo(
+    () =>
+      buildExportWorkbook({
+        kpis: currentKpis,
+        projectStatusRows,
+        taskProgressRows,
+        revenueRows,
+        utilizationRows,
+        clientContributionRows,
+        timesheetRows,
+        summaryRows,
+        metadataRows,
+        filterRows,
+        rawData,
+      }),
+    [
+      clientContributionRows,
+      currentKpis,
+      filterRows,
+      metadataRows,
+      projectStatusRows,
+      rawData,
+      revenueRows,
+      summaryRows,
+      taskProgressRows,
+      timesheetRows,
+      utilizationRows,
+    ],
+  );
+
+  function handleHeaderExport(type) {
+    const suffix = new Date().toISOString().slice(0, 10);
+    const baseName = `reports-${suffix}`;
+
+    if (type === 'excel') {
+      exportWorkbookToExcel(exportBundle, `${baseName}.xlsx`);
+      return;
+    }
+
+    if (type === 'csv') {
+      exportWorkbookToCsv(exportBundle, `${baseName}.csv`);
+      return;
+    }
+
+    exportWorkbookToPdf({
+      title: 'Reports',
+      subtitle: 'Business performance overview and analytics',
+      sheets: exportBundle,
+      filename: `${baseName}.pdf`,
+    });
+  }
+
+  function handleRowExport(sectionKey) {
+    const suffix = new Date().toISOString().slice(0, 10);
+
+    const sectionExporters = {
+      'project-status': () =>
+        exportRowsToExcel(
+          projectStatusRows,
+          [
+            { label: 'Status', value: 'name' },
+            { label: 'Projects', value: 'value' },
+          ],
+          `project-status-${suffix}.xlsx`,
+          'Project Status',
+        ),
+      'task-progress': () =>
+        exportRowsToExcel(
+          taskProgressRows,
+          [
+            { label: 'Task Status', value: (row) => row.name },
+            { label: 'Tasks', value: 'value' },
+          ],
+          `task-progress-${suffix}.xlsx`,
+          'Task Progress',
+        ),
+      'revenue-trend': () =>
+        exportRowsToExcel(
+          revenueRows,
+          [
+            { label: 'Month', value: 'month' },
+            { label: 'Revenue', value: 'revenue' },
+            { label: 'Collections', value: 'collections' },
+            { label: 'Balance', value: 'balance' },
+          ],
+          `revenue-trend-${suffix}.xlsx`,
+          'Revenue Trend',
+        ),
+      'employee-utilization': () =>
+        exportRowsToExcel(
+          utilizationRows,
+          [
+            { label: 'Employee', value: 'name' },
+            { label: 'Utilization %', value: 'utilization' },
+            { label: 'Projects', value: 'projects' },
+            { label: 'Hours', value: 'hours' },
+          ],
+          `employee-utilization-${suffix}.xlsx`,
+          'Employee Utilization',
+        ),
+      'client-contribution': () =>
+        exportRowsToExcel(
+          clientContributionRows,
+          [
+            { label: 'Client', value: 'clientName' },
+            { label: 'Revenue', value: 'revenue' },
+            { label: 'Billed', value: 'billed' },
+            { label: 'Outstanding', value: 'outstanding' },
+            { label: 'Projects', value: 'projectCount' },
+          ],
+          `client-contribution-${suffix}.xlsx`,
+          'Client Contribution',
+        ),
+      'timesheet-analytics': () =>
+        exportRowsToExcel(
+          timesheetRows,
+          [
+            { label: 'Month', value: 'month' },
+            { label: 'Logged Hours', value: 'loggedHours' },
+            { label: 'Billable Hours', value: 'billableHours' },
+          ],
+          `timesheet-analytics-${suffix}.xlsx`,
+          'Timesheet Analytics',
+        ),
+    };
+
+    sectionExporters[sectionKey]?.();
+  }
+
+  const scopedCounts = reportBundle.meta?.counts || {};
+
+  if (liveState.hasError && !bundleQuery.data) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center rounded-[28px] border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel)/0.96)] p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-500">
+          <RefreshCcw className="h-5 w-5" />
+        </div>
+        <h2 className="mt-4 text-xl font-semibold text-[rgb(var(--text))]">Reports are unavailable</h2>
+        <p className="mt-2 max-w-lg text-sm text-slate-500">{liveState.errorMessage}</p>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {Object.entries(row.stages || {})
-          .slice(0, 6)
-          .map(([stageName, pct]) => {
-            const value = Number(pct || 0);
-            return (
-              <div key={stageName} className="rounded-xl border border-[rgb(var(--line)/0.12)] bg-slate-50/70 p-2">
-                <div className="truncate text-[11px] font-medium text-slate-500">{stageName}</div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200/70">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, value))}%`,
-                      background: `linear-gradient(90deg, ${blendColor(value)}, ${blendColor(Math.min(100, value + 18))})`,
-                    }}
-                  />
-                </div>
-                <div className="mt-1 text-xs font-semibold text-[rgb(var(--text))]">{value}%</div>
+    );
+  }
+
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="min-w-0 space-y-6">
+      <Card className="overflow-hidden border border-[rgb(var(--line)/0.12)] shadow-[0_24px_70px_-45px_rgba(15,23,42,0.55)]">
+        <CardBody className="space-y-6 p-5 sm:p-6 xl:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.26em] text-sky-500">Reports</div>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-3xl font-semibold tracking-tight text-[rgb(var(--text))] sm:text-4xl">Reports</h1>
+                <Badge tone={liveState.isFetching ? 'amber' : 'green'}>{liveState.isFetching ? 'Refreshing live data' : 'Live data'}</Badge>
+                <Badge tone="blue">{filters.period === 'custom' ? 'Custom range' : filters.period === 'all' ? 'All time' : filters.period.replace(/-/g, ' ')}</Badge>
               </div>
-            );
-          })}
-      </div>
-    </div>
-  );
-}
-
-function ChartTooltip({ active, payload, label, currency = false, percent = false }) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-2xl border border-[rgb(var(--line)/0.16)] bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
-      {label ? <div className="text-xs font-semibold text-[rgb(var(--text))]">{label}</div> : null}
-      <div className="mt-1 space-y-1">
-        {payload.map((entry) => (
-          <div key={entry.dataKey} className="flex items-center justify-between gap-6 text-xs">
-            <div className="flex items-center gap-2 text-slate-500">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.fill || '#3b82f6' }} />
-              <span>{entry.name || prettyLabel(entry.dataKey)}</span>
+              <p className="mt-3 max-w-3xl text-sm text-slate-500 sm:text-base">
+                Business performance overview and analytics for projects, tasks, revenue, utilization, clients, and timesheets.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span>{formatDateTime(lastSyncAt)}</span>
+                <span>|</span>
+                <span>{formatCount(scopedCounts.projects ?? projectOptions.length)} projects in scope</span>
+                <span>|</span>
+                <span>{formatCount(clientOptions.length)} clients</span>
+                <span>|</span>
+                <span>{formatCount(teamOptions.length)} teams</span>
+              </div>
             </div>
-            <span className="font-semibold text-[rgb(var(--text))]">
-              {currency ? formatCurrency(entry.value) : percent ? `${entry.value}%` : formatValue(entry.value)}
-            </span>
+
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <ReportFilters
+                value={filters}
+                onChange={setFilters}
+                projectOptions={projectOptions}
+                clientOptions={clientOptions}
+                teamOptions={teamOptions}
+              />
+              <ExportDropdown onExport={handleHeaderExport} />
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
+
+          {liveState.isFetching ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-sky-500" />
+              Syncing reports with live backend data...
+            </div>
+          ) : null}
+        </CardBody>
+      </Card>
+
+      {liveState.isLoading ? <KpiSkeletonGrid /> : <KPISection items={currentKpis} />}
+
+      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid gap-4 xl:grid-cols-2">
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <ProjectStatusChart data={projectStatusRows} />}
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <TaskProgressChart data={taskProgressRows} />}
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <RevenueTrendChart data={revenueRows} />}
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <EmployeeUtilizationChart data={utilizationRows} />}
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <ClientContributionChart data={clientContributionRows} />}
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          {liveState.isLoading ? <ChartSkeleton /> : <TimesheetAnalyticsChart data={timesheetRows} />}
+        </motion.div>
+      </motion.div>
+
+      <ReportTable rows={summaryRows} onExportRow={handleRowExport} bodyClassName="max-h-[420px] overflow-y-auto overscroll-contain" />
+    </motion.div>
   );
 }
 
-function EmptyChartState({ label }) {
+function KpiSkeletonGrid() {
   return (
-    <div className="grid h-full min-h-[180px] place-items-center rounded-2xl border border-dashed border-[rgb(var(--line)/0.16)] bg-white/55 text-sm text-slate-500">
-      {label}
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <KpiSkeleton key={index} />
+      ))}
     </div>
   );
-}
-
-function prettyLabel(value = '') {
-  const source = String(value).replace(/[_-]+/g, ' ').trim();
-  if (!source) return 'Unknown';
-  return source
-    .split(' ')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function prettyMonth(month = '') {
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) return month || 'Unknown';
-  const [year, monthValue] = month.split('-');
-  const parsed = new Date(Number(year), Number(monthValue) - 1, 1);
-  return parsed.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
-}
-
-function formatValue(value) {
-  const number = Number(value || 0);
-  if (Number.isNaN(number)) return String(value ?? '-');
-  return number.toLocaleString('en-IN', { maximumFractionDigits: 1 });
-}
-
-function formatCompactCurrency(value) {
-  const number = Number(value || 0);
-  return `Rs. ${number >= 100000 ? `${(number / 100000).toFixed(1)}L` : number.toLocaleString('en-IN')}`;
-}
-
-function formatCurrency(value) {
-  const number = Number(value || 0);
-  return `Rs. ${number.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-}
-
-function sampleRows(rows = [], maxPoints = 24) {
-  const list = Array.isArray(rows) ? rows : [];
-  const limit = Math.max(1, Number(maxPoints || 0));
-  if (list.length <= limit) return list;
-
-  const sampleSize = Math.max(2, limit);
-  const step = Math.ceil(list.length / sampleSize);
-  const sampled = [];
-
-  for (let index = 0; index < list.length && sampled.length < sampleSize; index += step) {
-    sampled.push(list[index]);
-  }
-
-  if (sampled[sampled.length - 1] !== list[list.length - 1]) {
-    sampled[sampled.length - 1] = list[list.length - 1];
-  }
-
-  return sampled;
-}
-
-function truncateChartLabel(value = '', maxLength = 16) {
-  const text = String(value ?? '').trim();
-  if (!text || text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
-}
-
-function blendColor(percent) {
-  const clamped = Math.max(0, Math.min(100, Number(percent || 0)));
-  if (clamped >= 80) return '#10b981';
-  if (clamped >= 50) return '#3b82f6';
-  if (clamped >= 25) return '#f59e0b';
-  return '#ef4444';
 }

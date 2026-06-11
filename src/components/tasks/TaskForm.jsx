@@ -5,6 +5,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
 import { DropdownField } from '../shared/DropdownField';
 
+const PRIORITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low'].map((value) => ({ value, label: value }));
+const STATUS_OPTIONS = [
+  { value: 'todo', label: 'Todo' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'review', label: 'Review' },
+  { value: 'blocked', label: 'Blocked' },
+  { value: 'done', label: 'Done' },
+];
+const EMPTY_ARRAY = [];
+
 const schema = z.object({
   title: z.string().min(2, 'Task title is required'),
   description: z.string().optional(),
@@ -15,8 +25,11 @@ const schema = z.object({
   status: z.string().optional(),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
+  estimatedDurationHours: z.coerce.number().min(0).optional(),
+  estimatedDurationMinutesRemainder: z.coerce.number().min(0).max(59).optional(),
   assignee: z.string().optional(),
   reporter: z.string().optional(),
+  backupReviewer: z.string().optional(),
   assignedTeam: z.array(z.string()).optional(),
   nextAction: z.string().optional(),
   tags: z.string().optional(),
@@ -35,13 +48,14 @@ function extractIds(value) {
 
 export function TaskForm({
   initialValues,
-  projects = [],
-  teams = [],
-  employees = [],
+  projects = EMPTY_ARRAY,
+  teams = EMPTY_ARRAY,
+  employees = EMPTY_ARRAY,
   currentUser = null,
+  stageOptions = EMPTY_ARRAY,
   assignee = '',
   reporter = '',
-  assignedTeam = [],
+  assignedTeam = EMPTY_ARRAY,
   onSubmit,
   onCancel,
 }) {
@@ -51,7 +65,7 @@ export function TaskForm({
     reset,
     setValue,
     watch,
-    formState: { isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -64,21 +78,29 @@ export function TaskForm({
       status: 'todo',
       startDate: '',
       dueDate: '',
+      estimatedDurationHours: 0,
+      estimatedDurationMinutesRemainder: 0,
       assignee,
       reporter,
+      backupReviewer: '',
       assignedTeam: extractIds(assignedTeam),
       nextAction: '',
       tags: '',
     },
   });
   const projectValue = watch('project');
+  const stageValue = watch('stage');
   const teamValue = watch('team');
   const assigneeValue = watch('assignee');
   const reporterValue = watch('reporter');
+  const backupReviewerValue = watch('backupReviewer');
   const assignedTeamValue = watch('assignedTeam');
+  const estimatedHours = watch('estimatedDurationHours');
+  const estimatedMinutes = watch('estimatedDurationMinutesRemainder');
 
   useEffect(() => {
     if (initialValues) {
+      const estimatedDuration = Number(initialValues.estimatedDurationMinutes || 0);
       reset({
         title: initialValues.title || '',
         description: initialValues.description || '',
@@ -89,8 +111,11 @@ export function TaskForm({
         status: initialValues.status || 'todo',
         startDate: (initialValues.startDate || '').slice?.(0, 10) || '',
         dueDate: (initialValues.dueDate || '').slice?.(0, 10) || '',
+        estimatedDurationHours: Math.floor(estimatedDuration / 60),
+        estimatedDurationMinutesRemainder: estimatedDuration % 60,
         assignee: extractId(initialValues.assignee) || assignee || '',
         reporter: extractId(initialValues.reporter) || extractId(initialValues.createdBy) || reporter || '',
+        backupReviewer: extractId(initialValues.backupReviewer) || '',
         assignedTeam: extractIds(initialValues.assignedTeam),
         nextAction: initialValues.nextAction || '',
         tags: Array.isArray(initialValues.tags) ? initialValues.tags.join(', ') : initialValues.tags || '',
@@ -101,6 +126,20 @@ export function TaskForm({
   const selectedProject = useMemo(
     () => projects.find((project) => String(project.id || project._id) === String(projectValue)),
     [projectValue, projects],
+  );
+  const normalizedStageOptions = useMemo(
+    () =>
+      Array.isArray(stageOptions)
+        ? stageOptions.map((stage) => ({
+            value: stage.id || stage._id || stage.stageName || stage.stageNo,
+            label: [stage.stageNo, stage.stageName].filter(Boolean).join(' - ') || stage.stageName || stage.stageNo || 'Untitled stage',
+          }))
+        : [],
+    [stageOptions],
+  );
+  const selectedStage = useMemo(
+    () => normalizedStageOptions.find((stage) => String(stage.value) === String(stageValue)),
+    [normalizedStageOptions, stageValue],
   );
   const employeeOptionsSource = useMemo(() => {
     const list = Array.isArray(employees) ? [...employees] : [];
@@ -117,6 +156,10 @@ export function TaskForm({
   const selectedReporter = useMemo(
     () => employeeOptionsSource.find((employee) => String(employee.id || employee._id) === String(reporterValue)),
     [employeeOptionsSource, reporterValue],
+  );
+  const selectedBackupReviewer = useMemo(
+    () => employeeOptionsSource.find((employee) => String(employee.id || employee._id) === String(backupReviewerValue)),
+    [backupReviewerValue, employeeOptionsSource],
   );
   const selectedAssignedTeam = useMemo(
     () =>
@@ -171,9 +214,35 @@ export function TaskForm({
         .join(', ')}${selectedAssignedTeam.length > 2 ? ` +${selectedAssignedTeam.length - 2}` : ''}`
     : 'No team selected';
 
+  function handleTeamChange(nextValue) {
+    setValue('team', nextValue, { shouldValidate: true, shouldDirty: true });
+    const team = teams.find((item) => String(item.id || item._id) === String(nextValue));
+    const memberIds = Array.isArray(team?.members)
+      ? team.members.map((member) => extractId(member)).filter(Boolean)
+      : [];
+    setValue('assignedTeam', memberIds, { shouldValidate: true, shouldDirty: true });
+  }
+
+  function submitForm(values) {
+    const estimatedDurationMinutes =
+      Math.max(0, Number(values.estimatedDurationHours || 0)) * 60 +
+      Math.max(0, Number(values.estimatedDurationMinutesRemainder || 0));
+    const {
+      estimatedDurationHours: _estimatedDurationHours,
+      estimatedDurationMinutesRemainder: _estimatedDurationMinutesRemainder,
+      ...payload
+    } = values;
+    onSubmit({
+      ...payload,
+      estimatedDurationMinutes,
+    });
+  }
+
   return (
-    <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-      <Field label="Title"><input className="input" {...register('title')} /></Field>
+    <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit(submitForm)}>
+      <Field label="Title" error={errors.title?.message}>
+        <input className="input" placeholder="Enter task title" {...register('title')} />
+      </Field>
       <DropdownField
         label="Project"
         value={projectValue}
@@ -185,10 +254,11 @@ export function TaskForm({
         searchPlaceholder="Search projects..."
         className="sm:col-span-1"
       />
+      <FieldError message={errors.project?.message} className="sm:col-start-2" />
       <DropdownField
         label="Team"
         value={teamValue}
-        onChange={(nextValue) => setValue('team', nextValue, { shouldValidate: true, shouldDirty: true })}
+        onChange={handleTeamChange}
         placeholder="No team"
         selectedLabel={selectedTeam ? teamMembersLabel : 'No team'}
         options={teamOptions}
@@ -210,11 +280,62 @@ export function TaskForm({
         className="sm:col-span-1"
       />
       <Field label="Description" className="sm:col-span-2"><textarea className="input min-h-[96px]" {...register('description')} /></Field>
-      <Field label="Stage"><input className="input" {...register('stage')} /></Field>
-      <Field label="Priority"><input className="input" {...register('priority')} /></Field>
-      <Field label="Status"><input className="input" {...register('status')} /></Field>
+      {normalizedStageOptions.length ? (
+        <DropdownField
+          label="Stage"
+          value={stageValue}
+          onChange={(nextValue) => setValue('stage', nextValue, { shouldValidate: true, shouldDirty: true })}
+          placeholder="No stage"
+          selectedLabel={selectedStage?.label || 'No stage'}
+          options={normalizedStageOptions}
+          searchable
+          searchPlaceholder="Search stages..."
+          emptyValue=""
+        />
+      ) : (
+        <Field label="Stage"><input className="input" placeholder="Stage name or number" {...register('stage')} /></Field>
+      )}
+      <DropdownField
+        label="Priority"
+        value={watch('priority')}
+        onChange={(nextValue) => setValue('priority', nextValue || 'Medium', { shouldValidate: true, shouldDirty: true })}
+        placeholder="Medium"
+        selectedLabel={watch('priority') || 'Medium'}
+        options={PRIORITY_OPTIONS}
+        emptyValue="Medium"
+      />
+      <DropdownField
+        label="Status"
+        value={watch('status')}
+        onChange={(nextValue) => setValue('status', nextValue || 'todo', { shouldValidate: true, shouldDirty: true })}
+        placeholder="Todo"
+        selectedLabel={STATUS_OPTIONS.find((item) => item.value === watch('status'))?.label || 'Todo'}
+        options={STATUS_OPTIONS}
+        emptyValue="todo"
+      />
       <Field label="Start Date"><input className="input" type="date" {...register('startDate')} /></Field>
       <Field label="Due Date"><input className="input" type="date" {...register('dueDate')} /></Field>
+      <div className="sm:col-span-2 rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4">
+        <div className="mb-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Task Timer</div>
+          <div className="mt-1 text-xs text-slate-600">
+            Set the completion timer for the assignee. Example: enter 1 hour and 0 minutes for a one-hour task.
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Timer Hours" error={errors.estimatedDurationHours?.message}>
+          <input className="input" type="number" min="0" step="1" {...register('estimatedDurationHours')} />
+        </Field>
+        <Field label="Timer Minutes" error={errors.estimatedDurationMinutesRemainder?.message}>
+          <input className="input" type="number" min="0" max="59" step="1" {...register('estimatedDurationMinutesRemainder')} />
+        </Field>
+        </div>
+      </div>
+      {Number(estimatedHours || 0) || Number(estimatedMinutes || 0) ? (
+        <div className="sm:col-span-2 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700">
+          This task will use a locked completion timer after the employee starts it.
+        </div>
+      ) : null}
       <DropdownField
         label="Assignee"
         value={assigneeValue}
@@ -224,6 +345,19 @@ export function TaskForm({
         options={assigneeOptions}
         searchable
         searchPlaceholder="Search employees..."
+        emptyValue=""
+        className="sm:col-span-1"
+      />
+      <FieldError message={errors.assignee?.message} />
+      <DropdownField
+        label="Backup Reviewer"
+        value={backupReviewerValue}
+        onChange={(nextValue) => setValue('backupReviewer', nextValue, { shouldValidate: true, shouldDirty: true })}
+        placeholder="No reviewer"
+        selectedLabel={selectedBackupReviewer ? (selectedBackupReviewer.name || selectedBackupReviewer.label || selectedBackupReviewer.email || 'Reviewer') : 'No reviewer'}
+        options={assigneeOptions}
+        searchable
+        searchPlaceholder="Search reviewers..."
         emptyValue=""
         className="sm:col-span-1"
       />
@@ -239,21 +373,32 @@ export function TaskForm({
         searchPlaceholder="Search team members..."
         className="sm:col-span-1"
       />
+      {selectedTeam && selectedAssignedTeam.length ? (
+        <div className="sm:col-span-2 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-700">
+          Team members were selected from {selectedTeam.name || selectedTeam.label || 'the selected team'}. You can still adjust them manually.
+        </div>
+      ) : null}
       <Field label="Next Action" className="sm:col-span-2"><input className="input" {...register('nextAction')} /></Field>
       <Field label="Tags" className="sm:col-span-2"><input className="input" {...register('tags')} /></Field>
       <div className="sm:col-span-2 flex justify-end gap-3 border-t border-[rgb(var(--line)/0.16)] pt-4">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting}>Save Task</Button>
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Task'}</Button>
       </div>
     </form>
   );
 }
 
-function Field({ label, children, className = '' }) {
+function Field({ label, children, className = '', error = '' }) {
   return (
     <label className={`block ${className}`}>
       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</span>
       {children}
+      <FieldError message={error} />
     </label>
   );
+}
+
+function FieldError({ message, className = '' }) {
+  if (!message) return null;
+  return <div className={`mt-1 text-xs font-medium text-rose-600 ${className}`}>{message}</div>;
 }

@@ -5,6 +5,10 @@ function unwrap(response) {
 }
 
 export const reportService = {
+  async getBundle(params = {}) {
+    const response = await api.get('/reports/bundle', { params });
+    return unwrap(response);
+  },
   async getOverview(params = {}) {
     const response = await api.get('/reports', { params });
     return unwrap(response);
@@ -21,6 +25,10 @@ export const reportService = {
     const response = await api.get('/reports/task-status', { params });
     return unwrap(response);
   },
+  async getTaskProgress(params = {}) {
+    const response = await api.get('/reports/task-progress', { params });
+    return unwrap(response);
+  },
   async getRevenueTrend(params = {}) {
     const response = await api.get('/reports/revenue-trend', { params });
     return unwrap(response);
@@ -31,6 +39,14 @@ export const reportService = {
   },
   async getEngineerUtilization(params = {}) {
     const response = await api.get('/reports/engineer-utilization', { params });
+    return unwrap(response);
+  },
+  async getClientContribution(params = {}) {
+    const response = await api.get('/reports/client-contribution', { params });
+    return unwrap(response);
+  },
+  async getTimesheetAnalytics(params = {}) {
+    const response = await api.get('/reports/timesheet-analytics', { params });
     return unwrap(response);
   },
 };

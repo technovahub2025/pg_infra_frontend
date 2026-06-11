@@ -65,7 +65,7 @@ export function useKanbanOverview() {
   const user = useAuthStore((state) => state.user);
   return useQuery({
     queryKey: ['kanban-overview'],
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && ['superadmin', 'admin', 'project_manager'].includes(user?.role)),
     queryFn: async () => {
       const payload = await projectService.kanbanOverview();
       return {
@@ -162,6 +162,54 @@ export function useAddTaskComment() {
   });
 }
 
+export function useRequestTaskTimeExtension() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }) => taskService.requestTimeExtension(id, payload),
+    onSuccess: () => toast.success('Extra-time request submitted'),
+    onSettled: () => {
+      invalidateTaskQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['task-time-extension-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+    },
+  });
+}
+
+export function usePendingTaskTimeExtensionRequests() {
+  const user = useAuthStore((state) => state.user);
+  return useQuery({
+    queryKey: ['task-time-extension-requests', user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: () => taskService.pendingTimeExtensionRequests(),
+  });
+}
+
+export function useApproveTaskTimeExtensionRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }) => taskService.approveTimeExtensionRequest(id, payload),
+    onSuccess: () => toast.success('Extra time approved'),
+    onSettled: () => {
+      invalidateTaskQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['task-time-extension-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+    },
+  });
+}
+
+export function useRejectTaskTimeExtensionRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }) => taskService.rejectTimeExtensionRequest(id, payload),
+    onSuccess: () => toast.success('Extra time rejected'),
+    onSettled: () => {
+      invalidateTaskQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['task-time-extension-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+    },
+  });
+}
+
 function invalidateTaskQueries(queryClient, projectId) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
   queryClient.invalidateQueries({ queryKey: ['task'] });
@@ -170,6 +218,11 @@ function invalidateTaskQueries(queryClient, projectId) {
   queryClient.invalidateQueries({ queryKey: ['my-tasks-kanban'] });
   queryClient.invalidateQueries({ queryKey: ['task-counts'] });
   queryClient.invalidateQueries({ queryKey: ['kanban-overview'] });
+  queryClient.invalidateQueries({ queryKey: ['employee'] });
+  queryClient.invalidateQueries({ queryKey: ['employee-tasks'] });
+  queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+  queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
+  queryClient.invalidateQueries({ queryKey: ['reports'] });
   if (projectId) {
     queryClient.invalidateQueries({ queryKey: ['project', projectId] });
     queryClient.invalidateQueries({ queryKey: ['project-summary', projectId] });

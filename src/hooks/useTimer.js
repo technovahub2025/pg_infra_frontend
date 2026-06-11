@@ -78,6 +78,7 @@ export function useTimer() {
       queryClient.invalidateQueries({ queryKey: ['timer-active'] });
       queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
     onError: () => toast.error('Failed to start timer'),
   });
@@ -91,6 +92,7 @@ export function useTimer() {
       queryClient.invalidateQueries({ queryKey: ['timer-active'] });
       queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
     onError: () => toast.error('Failed to stop timer'),
   });
@@ -101,6 +103,7 @@ export function useTimer() {
       toast.success('Manual entry added');
       queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
       queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
     onError: () => toast.error('Failed to save manual entry'),
   });
@@ -111,6 +114,7 @@ export function useTimer() {
       toast.success('Timer log deleted');
       queryClient.invalidateQueries({ queryKey: ['timer-logs'] });
       queryClient.invalidateQueries({ queryKey: ['timer-active'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
     onError: () => toast.error('Failed to delete timer log'),
   });

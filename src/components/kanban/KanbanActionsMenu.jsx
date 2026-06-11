@@ -68,7 +68,8 @@ export function KanbanActionsMenu({
           triggerClassName,
         )}
         aria-label="Open actions menu"
-        onClick={() => {
+        onClick={(event) => {
+          event.stopPropagation();
           if (open) {
             setOpen(false);
             return;
@@ -104,7 +105,8 @@ export function KanbanActionsMenu({
                           : 'text-slate-600 hover:bg-slate-50',
                         item.disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent',
                       )}
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation();
                         if (item.disabled) return;
                         setOpen(false);
                         item.onClick?.();

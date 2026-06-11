@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { employeeService } from '../services/employeeService';
+import { useAuthStore } from '../store/authStore';
 
-export function useEmployees(params = {}) {
+function canReadEmployees(role) {
+  return ['superadmin', 'admin', 'project_manager'].includes(role);
+}
+
+export function useEmployees(params = {}, queryOptions = {}) {
+  const role = useAuthStore((state) => state.user?.role);
   return useQuery({
     queryKey: ['employees', params],
+    enabled: Boolean(role && canReadEmployees(role)) && (queryOptions.enabled ?? true),
     queryFn: () => employeeService.list(params),
+    ...queryOptions,
   });
 }
 
@@ -22,7 +30,10 @@ export function useCreateEmployee() {
   return useMutation({
     mutationFn: (payload) => employeeService.create(payload),
     onSuccess: () => toast.success('Employee saved'),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
   });
 }
 
@@ -34,6 +45,7 @@ export function useUpdateEmployee() {
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['employee', variables?.id] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -46,6 +58,7 @@ export function useUpdateEmployeeRole() {
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['employee', variables?.id] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -55,7 +68,10 @@ export function useDeactivateEmployee() {
   return useMutation({
     mutationFn: (id) => employeeService.deactivate(id),
     onSuccess: () => toast.success('Employee deactivated'),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
   });
 }
 

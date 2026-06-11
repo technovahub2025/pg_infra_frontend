@@ -92,7 +92,8 @@ export function DropdownField({
       ? createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[80] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
+            data-dropdown-portal="true"
+            className="fixed z-[130] overflow-hidden rounded-2xl border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel)/0.98)] text-[rgb(var(--text))] shadow-2xl shadow-slate-900/10 backdrop-blur-xl"
             style={{
               left: rect.left,
               top: rect.bottom + 6,
@@ -101,7 +102,7 @@ export function DropdownField({
           >
             <div className="border-b border-slate-100 p-2">
               {searchable ? (
-                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <label className="flex items-center gap-2 rounded-xl border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel-2)/0.72)] px-3 py-2 text-sm text-[rgb(var(--text))]">
                   <Search className="h-4 w-4 text-slate-400" />
                   <input
                     type="text"
@@ -122,9 +123,11 @@ export function DropdownField({
                     onClick={() => {
                       onChange(options.map((option) => option.value));
                     }}
-                    className={cn(
+                      className={cn(
                       'flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition',
-                      Array.isArray(value) && value.length === options.length ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50',
+                      Array.isArray(value) && value.length === options.length
+                        ? 'bg-sky-500/10 text-[rgb(var(--text))]'
+                        : 'text-[rgb(var(--text))] hover:bg-[rgb(var(--panel-2)/0.7)]',
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">{placeholder}</span>
@@ -146,7 +149,7 @@ export function DropdownField({
                         }}
                         className={cn(
                           'flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition',
-                          isActive ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50',
+                          isActive ? 'bg-sky-500/10 text-[rgb(var(--text))]' : 'text-[rgb(var(--text))] hover:bg-[rgb(var(--panel-2)/0.7)]',
                         )}
                       >
                         <span className="min-w-0 flex-1 truncate">{option.label}</span>
@@ -186,7 +189,7 @@ export function DropdownField({
                         }}
                         className={cn(
                           'flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition',
-                          isActive ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50',
+                          isActive ? 'bg-sky-500/10 text-[rgb(var(--text))]' : 'text-[rgb(var(--text))] hover:bg-[rgb(var(--panel-2)/0.7)]',
                         )}
                       >
                         <span className="min-w-0 flex-1 truncate">{option.label}</span>
@@ -212,7 +215,7 @@ export function DropdownField({
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="flex h-11 w-full items-center gap-3 rounded-2xl border border-sky-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm transition hover:border-sky-300 hover:bg-slate-50"
+          className="flex h-11 w-full items-center gap-3 rounded-2xl border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel-2)/0.72)] px-4 text-left text-sm text-[rgb(var(--text))] shadow-sm transition hover:border-sky-400/30 hover:bg-[rgb(var(--panel-2)/0.92)]"
         >
           <span className="min-w-0 flex-1 truncate">{activeLabel}</span>
           <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />

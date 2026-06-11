@@ -19,6 +19,7 @@ import { PWAInstallBanner } from './components/shared/PWAInstallBanner';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Projects = lazy(() => import('./pages/Projects'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const TaskDetail = lazy(() => import('./pages/TaskDetail'));
 const Kanban = lazy(() => import('./pages/Kanban'));
 const StageDetail = lazy(() => import('./pages/StageDetail'));
 const StageGuidePage = lazy(() => import('./pages/StageGuidePage'));
@@ -96,6 +97,14 @@ export default function App() {
                   element={
                     <RoleGuard roles={['superadmin', 'admin', 'project_manager']} fallback={<Navigate to="/my-tasks" replace />}>
                       <ProjectDetail />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="/tasks/:id"
+                  element={
+                    <RoleGuard roles={['superadmin', 'admin', 'project_manager', 'employee']} fallback={<Navigate to="/my-tasks" replace />}>
+                      <TaskDetail />
                     </RoleGuard>
                   }
                 />

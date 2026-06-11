@@ -44,6 +44,7 @@ import { StageForm } from '../components/stages/StageForm';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskForm } from '../components/tasks/TaskForm';
 import { TaskComments } from '../components/tasks/TaskComments';
+import { TimeExtensionRequestsPanel } from '../components/tasks/TimeExtensionRequestsPanel';
 import { TaskPriorityBadge } from '../components/tasks/TaskPriorityBadge';
 import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -304,7 +305,7 @@ export default function ProjectDetail() {
       return <StageForm initialValues={modalData} onSubmit={handleStageSave} onCancel={closeModal} />;
     }
     if (activeModal === 'task') {
-      return <TaskForm initialValues={modalData} projects={[project]} teams={teams} employees={employees} currentUser={currentUser} reporter={currentUser?.id || ''} onSubmit={handleTaskSave} onCancel={closeModal} />;
+      return <TaskForm initialValues={modalData} projects={[project]} stageOptions={stages} teams={teams} employees={employees} currentUser={currentUser} reporter={currentUser?.id || ''} onSubmit={handleTaskSave} onCancel={closeModal} />;
     }
     if (activeModal === 'invoice') {
       return <BillingForm initialValues={modalData} projects={[project]} onSubmit={handleInvoiceSave} onCancel={closeModal} />;
@@ -550,7 +551,7 @@ export default function ProjectDetail() {
                   task={task}
                   selected={selectedTask?.id === task.id}
                   compact
-                  onClick={() => setSelectedTaskId(task.id)}
+                  onClick={() => navigate(`/tasks/${task.id}`)}
                 />
               ))}
             </div>
@@ -563,6 +564,7 @@ export default function ProjectDetail() {
           </div>
           <Card className="xl:sticky xl:top-24 xl:self-start">
             <CardBody className="space-y-4">
+              <TimeExtensionRequestsPanel compact />
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-[rgb(var(--text))]">Selected Task</div>
                 {selectedTask ? <TaskStatusBadge value={selectedTask.status} /> : null}

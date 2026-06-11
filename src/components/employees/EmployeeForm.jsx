@@ -5,14 +5,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../ui/button';
 import { DropdownField } from '../shared/DropdownField';
 
+const phoneMessage = 'Must be exactly 10 digits';
+const phoneSchema = z
+  .string()
+  .min(1, 'Required')
+  .refine((value) => /^\d{10}$/.test(value.replace(/[\s-]/g, '').trim()), phoneMessage);
+
 const schema = z.object({
+  employeeId: z.string().min(1, 'Employee ID is required'),
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
-  role: z.enum(['admin', 'project_manager', 'employee']),
-  phone: z.string().optional(),
+  role: z.enum(['admin', 'project_manager', 'employee']).optional().default('employee'),
+  phone: phoneSchema,
+  emergencyPhone: phoneSchema,
   designation: z.string().optional(),
   department: z.string().optional(),
-  joiningDate: z.string().optional(),
+  joiningDate: z.string().min(1, 'Joining date is required'),
   avatar: z.string().optional(),
   isActive: z.boolean().optional(),
   password: z.string().optional(),
@@ -40,9 +48,11 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      employeeId: '',
       email: '',
       role: 'employee',
       phone: '',
+      emergencyPhone: '',
       designation: '',
       department: '',
       joiningDate: '',
@@ -61,10 +71,12 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
   useEffect(() => {
     if (initialValues) {
       reset({
+        employeeId: initialValues.employeeId || '',
         name: initialValues.name || '',
         email: initialValues.email || '',
         role: initialValues.role || 'employee',
         phone: initialValues.phone || '',
+        emergencyPhone: initialValues.emergencyPhone || '',
         designation: initialValues.designation || '',
         department: initialValues.department || '',
         joiningDate: (initialValues.joiningDate || '').slice?.(0, 10) || '',
@@ -82,8 +94,12 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
       className="grid gap-4 sm:grid-cols-2"
       onSubmit={handleSubmit(async (values) => onSubmit(values))}
     >
-      <Field label="Name" error={errors.name?.message}><input className="input" {...register('name')} /></Field>
-      <Field label="Email" error={errors.email?.message}><input className="input" {...register('email')} /></Field>
+      <Field label="Employee ID" required error={errors.employeeId?.message}><input className="input" {...register('employeeId')} /></Field>
+      <Field label="Name" required error={errors.name?.message}><input className="input" {...register('name')} /></Field>
+      <Field label="Email" required error={errors.email?.message}><input type="email" className="input" {...register('email')} /></Field>
+      <Field label="Mobile Number" required error={errors.phone?.message}><input className="input" inputMode="numeric" {...register('phone')} /></Field>
+      <Field label="Emergency Number" required error={errors.emergencyPhone?.message}><input className="input" inputMode="numeric" {...register('emergencyPhone')} /></Field>
+      <Field label="Joining Date" required error={errors.joiningDate?.message}><input type="date" className="input" {...register('joiningDate')} /></Field>
       <Field label="Role">
         <DropdownField
           value={role}
@@ -96,7 +112,6 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
           placeholder="Select role"
         />
       </Field>
-      <Field label="Phone"><input className="input" {...register('phone')} /></Field>
       <Field label="Designation"><input className="input" {...register('designation')} /></Field>
       <Field label="Department">
         <DropdownField
@@ -112,7 +127,6 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
           placeholder="Select department"
         />
       </Field>
-      <Field label="Joining Date"><input type="date" className="input" {...register('joiningDate')} /></Field>
       <Field label="Avatar URL"><input className="input" {...register('avatar')} /></Field>
       <Field label="Active">
         <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
@@ -144,10 +158,13 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }) {
   );
 }
 
-function Field({ label, error, children }) {
+function Field({ label, required = false, error, children }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</span>
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+        {required ? <span className="ml-1 text-rose-500">*</span> : null}
+      </span>
       {children}
       {error ? <span className="mt-1 block text-xs text-rose-300">{error}</span> : null}
     </label>

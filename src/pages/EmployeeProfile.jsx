@@ -13,6 +13,7 @@ import {
   ListTodo,
   Phone,
   ShieldCheck,
+  Siren,
   UserCog,
   Users,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ import { EmployeeWorkload } from '../components/employees/EmployeeWorkload';
 import { EmployeeDocuments } from '../components/employees/EmployeeDocuments';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskForm } from '../components/tasks/TaskForm';
+import { TimeExtensionRequestsPanel } from '../components/tasks/TimeExtensionRequestsPanel';
 import { EmptyState } from '../components/shared/EmptyState';
 import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { ModalShell } from '../components/shared/ModalShell';
@@ -208,7 +210,8 @@ export default function EmployeeProfile() {
                 { label: 'Employee ID', value: employee.employeeId, icon: BadgeInfo },
                 { label: 'Full Name', value: employee.name, icon: UserCog },
                 { label: 'Email', value: employee.email, icon: Mail },
-                { label: 'Phone', value: employee.phone, icon: Phone },
+                { label: 'Mobile Number', value: employee.phone, icon: Phone },
+                { label: 'Emergency Number', value: employee.emergencyPhone, icon: Siren },
                 { label: 'Designation', value: employee.designation, icon: UserCog },
                 { label: 'Department', value: employee.department, icon: Building2 },
                 { label: 'Role', value: employee.role, icon: ShieldCheck },
@@ -228,6 +231,7 @@ export default function EmployeeProfile() {
           </Card>
 
           <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+            <TimeExtensionRequestsPanel compact />
             <Card>
               <CardBody className="space-y-4">
                 <div className="flex items-center justify-between gap-3">

@@ -29,6 +29,7 @@ export function normalizeProject(record = {}) {
 
   return {
     id: String(record.id || record._id || record.projectId || record.name || ''),
+    dbId: String(record._id || record.id || record.projectId || ''),
     projectName: record.projectName || record.name || 'Untitled Project',
     clientName: record.clientName || record.client || '',
     companySegment: record.companySegment || record.type || '',
@@ -83,6 +84,7 @@ export function normalizeStage(record = {}) {
   const project = record.project && typeof record.project === 'object' ? normalizeProject(record.project) : record.project || null;
   return {
     id: String(record.id || record._id || ''),
+    dbId: String(record._id || record.id || ''),
     project,
     projectId: typeof record.project === 'string' ? record.project : record.project?._id || record.project?.id || null,
     stageNo: record.stageNo || '',
@@ -135,6 +137,7 @@ export function normalizeTask(record = {}) {
   const status = statusMap[String(record.status || 'todo').toLowerCase()] || String(record.status || 'todo').toLowerCase();
   return {
     id: String(record.id || record._id || ''),
+    dbId: String(record._id || record.id || ''),
     title: record.title || '',
     description: record.description || '',
     startDate: record.startDate || null,
@@ -151,6 +154,14 @@ export function normalizeTask(record = {}) {
     status,
     dueDate: record.dueDate || null,
     completedAt: record.completedAt || null,
+    estimatedDurationMinutes: Number(record.estimatedDurationMinutes || 0),
+    timerStartedAt: record.timerStartedAt || null,
+    timerExpiresAt: record.timerExpiresAt || null,
+    timerStatus: record.timerStatus || 'not_started',
+    extraTimeMinutesGranted: Number(record.extraTimeMinutesGranted || 0),
+    activeTimerLog: record.activeTimerLog || null,
+    pendingTimeExtensionRequest: record.pendingTimeExtensionRequest || null,
+    latestTimeExtensionRequest: record.latestTimeExtensionRequest || null,
     nextAction: record.nextAction || '',
     tags: Array.isArray(record.tags) ? record.tags : typeof record.tags === 'string' ? record.tags.split(',').map((item) => item.trim()).filter(Boolean) : [],
     attachments: Array.isArray(record.attachments) ? record.attachments : [],
@@ -182,6 +193,7 @@ export function normalizeClient(record = {}) {
   const projects = Array.isArray(record.projects) ? record.projects : [];
   return {
     id: String(record.id || record._id || ''),
+    dbId: String(record._id || record.id || ''),
     clientName: record.clientName || '',
     contactPerson: record.contactPerson || '',
     email: record.email || '',
@@ -197,6 +209,27 @@ export function normalizeClient(record = {}) {
     projects,
     createdBy: record.createdBy || null,
     updatedBy: record.updatedBy || null,
+    createdAt: record.createdAt || null,
+    updatedAt: record.updatedAt || null,
+  };
+}
+
+export function normalizeTeam(record = {}) {
+  const members = Array.isArray(record.members) ? record.members : [];
+  const projectIds = Array.isArray(record.projectIds) ? record.projectIds : [];
+
+  return {
+    id: String(record.id || record._id || ''),
+    dbId: String(record._id || record.id || ''),
+    name: record.name || 'Untitled Team',
+    description: record.description || '',
+    color: record.color || '#3b82f6',
+    members,
+    memberCount: Number(record.memberCount || members.length || 0),
+    projectIds,
+    projectCount: Number(record.projectCount || projectIds.length || 0),
+    createdBy: record.createdBy || null,
+    isActive: Boolean(record.isActive ?? true),
     createdAt: record.createdAt || null,
     updatedAt: record.updatedAt || null,
   };

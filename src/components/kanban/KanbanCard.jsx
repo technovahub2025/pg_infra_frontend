@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
+import { useNavigate } from 'react-router-dom';
 import { CalendarDays, GripVertical, Layers3, PencilLine, Trash2, UserCircle2 } from 'lucide-react';
 import { Card, CardBody } from '../ui/card';
 import { TaskPriorityBadge } from '../tasks/TaskPriorityBadge';
@@ -9,6 +10,7 @@ import { KanbanActionsMenu } from './KanbanActionsMenu';
 import { cn } from '../../lib/utils';
 
 function KanbanCardImpl({ task, showProject = false, onEdit, onDelete }) {
+  const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task, showProject },
@@ -22,8 +24,12 @@ function KanbanCardImpl({ task, showProject = false, onEdit, onDelete }) {
       {...attributes}
     >
       <Card
+        onClick={() => {
+          if (!showProject && task.id) navigate(`/tasks/${task.id}`);
+        }}
         className={cn(
           'border-white/10 bg-white/75 shadow-sm shadow-black/10 transition hover:-translate-y-[1px] hover:border-sky-200/40 hover:shadow-md',
+          !showProject && 'cursor-pointer',
           isDragging && 'rotate-[0.3deg] shadow-xl shadow-sky-500/10 ring-1 ring-sky-300/40',
         )}
       >
@@ -73,6 +79,8 @@ function KanbanCardImpl({ task, showProject = false, onEdit, onDelete }) {
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Drag task"
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
                 {...listeners}
               >
                 <GripVertical className="h-4 w-4" />

@@ -23,6 +23,17 @@ export function TimerWidget() {
   }, [tasksQuery.data, projectId]);
 
   const runningLabel = isRunning ? formatDuration(elapsedSeconds) : 'No timer running';
+  const activeTask = activeLog?.task || null;
+  const isBudgetedTask = Number(activeTask?.estimatedDurationMinutes || 0) > 0;
+  const remainingSeconds = activeTask?.timerExpiresAt
+    ? Math.floor((new Date(activeTask.timerExpiresAt).getTime() - Date.now()) / 1000)
+    : null;
+  const timerExpired = isBudgetedTask && remainingSeconds !== null && remainingSeconds <= 0;
+  const displayLabel = isBudgetedTask && remainingSeconds !== null
+    ? timerExpired
+      ? 'Expired'
+      : `${formatDuration(Math.max(0, remainingSeconds))} left`
+    : runningLabel;
   const taskLabel = isRunning ? `${activeLog?.task?.title || 'Tracking task'} · ${activeLog?.project?.projectName || 'Project'}` : 'Ready to start';
   const warningLabel = warningLevel === 3 ? '2h+' : warningLevel === 2 ? '1h+' : warningLevel === 1 ? '30m+' : '';
 
@@ -31,26 +42,32 @@ export function TimerWidget() {
       <div className="flex items-center gap-2 md:hidden">
         <Button
           type="button"
-          variant={isRunning ? 'danger' : 'secondary'}
+          variant={isRunning && !isBudgetedTask ? 'danger' : 'secondary'}
           size="sm"
           className="h-10 w-10 rounded-xl px-0"
-          onClick={() => (isRunning ? stopTimer() : setSelectorOpen(true))}
-          aria-label={isRunning ? 'Stop timer' : 'Start timer'}
-          title={isRunning ? 'Stop timer' : 'Start timer'}
+          onClick={() => {
+            if (isRunning && isBudgetedTask) return;
+            if (isRunning) stopTimer();
+            else setSelectorOpen(true);
+          }}
+          aria-label={isRunning && isBudgetedTask ? 'Locked task timer' : isRunning ? 'Stop timer' : 'Start timer'}
+          title={isRunning && isBudgetedTask ? 'Locked task timer' : isRunning ? 'Stop timer' : 'Start timer'}
         >
-          {isRunning ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+          {isRunning && isBudgetedTask ? <Clock3 className="h-4 w-4" /> : isRunning ? <PauseCircle className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-10 w-10 rounded-xl px-0"
-          onClick={() => setSelectorOpen(true)}
-          aria-label="Open timer selector"
-          title="Open timer selector"
-        >
-          <Shuffle className="h-4 w-4" />
-        </Button>
+        {!isBudgetedTask ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-10 w-10 rounded-xl px-0"
+            onClick={() => setSelectorOpen(true)}
+            aria-label="Open timer selector"
+            title="Open timer selector"
+          >
+            <Shuffle className="h-4 w-4" />
+          </Button>
+        ) : null}
       </div>
 
       <div className="hidden w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel-2)/0.82)] px-3 py-2 shadow-sm backdrop-blur md:inline-flex">
@@ -61,8 +78,17 @@ export function TimerWidget() {
             <Clock3 className="h-3.5 w-3.5" />
             Timer
           </div>
-          <div className="mt-1 truncate text-sm font-semibold text-[rgb(var(--text))]">{runningLabel}</div>
+          <div className="mt-1 truncate text-sm font-semibold text-[rgb(var(--text))]">{displayLabel}</div>
           <div className="truncate text-[11px] text-slate-400">{taskLabel}</div>
+          {isBudgetedTask ? (
+            <div className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+              timerExpired
+                ? 'bg-rose-500/15 text-rose-300 ring-rose-400/20'
+                : 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/20'
+            }`}>
+              Locked task timer
+            </div>
+          ) : null}
           {warningLabel ? (
             <div className="mt-1 inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-400/20">
               {warningLabel} warning
@@ -71,21 +97,23 @@ export function TimerWidget() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {isRunning ? (
+          {isRunning && !isBudgetedTask ? (
             <Button size="sm" variant="danger" onClick={() => stopTimer()}>
               <PauseCircle className="h-4 w-4" />
               Stop
             </Button>
-          ) : (
+          ) : !isRunning ? (
             <Button size="sm" onClick={() => setSelectorOpen(true)}>
               <PlayCircle className="h-4 w-4" />
               Start
             </Button>
-          )}
-          <Button size="sm" variant="secondary" onClick={() => setSelectorOpen(true)}>
-            <Shuffle className="h-4 w-4" />
-            Switch
-          </Button>
+          ) : null}
+          {!isBudgetedTask ? (
+            <Button size="sm" variant="secondary" onClick={() => setSelectorOpen(true)}>
+              <Shuffle className="h-4 w-4" />
+              Switch
+            </Button>
+          ) : null}
           <Button size="sm" variant="secondary" onClick={() => window.location.reload()}>
             <RefreshCw className="h-4 w-4" />
           </Button>

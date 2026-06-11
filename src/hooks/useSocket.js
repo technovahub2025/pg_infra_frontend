@@ -40,11 +40,18 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ['report-status'] });
       queryClient.invalidateQueries({ queryKey: ['report-priority'] });
       queryClient.invalidateQueries({ queryKey: ['report-task-status'] });
+      queryClient.invalidateQueries({ queryKey: ['report-task-progress'] });
       queryClient.invalidateQueries({ queryKey: ['report-revenue-trend'] });
       queryClient.invalidateQueries({ queryKey: ['report-stage-completion'] });
       queryClient.invalidateQueries({ queryKey: ['report-engineer'] });
+      queryClient.invalidateQueries({ queryKey: ['report-client-contribution'] });
+      queryClient.invalidateQueries({ queryKey: ['report-timesheet-analytics'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['employee'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-time-extension-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['timer-active'] });
       queryClient.invalidateQueries({ queryKey: ['stages'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -61,8 +68,15 @@ export function useSocket() {
     socket.on('client:created', handleProjectChanged);
     socket.on('client:updated', handleProjectChanged);
     socket.on('client:deleted', handleProjectChanged);
+    socket.on('task:created', handleProjectChanged);
     socket.on('task:updated', handleProjectChanged);
+    socket.on('task:time-extension', handleProjectChanged);
+    socket.on('task:deleted', handleProjectChanged);
     socket.on('stage:approved', handleProjectChanged);
+    socket.on('timer:started', handleProjectChanged);
+    socket.on('timer:stopped', handleProjectChanged);
+    socket.on('timer:manual', handleProjectChanged);
+    socket.on('timer:deleted', handleProjectChanged);
     socket.on('activity:created', handleProjectChanged);
 
     return () => {
@@ -74,8 +88,15 @@ export function useSocket() {
       socket.off('client:created', handleProjectChanged);
       socket.off('client:updated', handleProjectChanged);
       socket.off('client:deleted', handleProjectChanged);
+      socket.off('task:created', handleProjectChanged);
       socket.off('task:updated', handleProjectChanged);
+      socket.off('task:time-extension', handleProjectChanged);
+      socket.off('task:deleted', handleProjectChanged);
       socket.off('stage:approved', handleProjectChanged);
+      socket.off('timer:started', handleProjectChanged);
+      socket.off('timer:stopped', handleProjectChanged);
+      socket.off('timer:manual', handleProjectChanged);
+      socket.off('timer:deleted', handleProjectChanged);
       socket.off('activity:created', handleProjectChanged);
       socket.emit('leave:user', user.id);
       if (['superadmin', 'admin', 'project_manager'].includes(user.role)) {
