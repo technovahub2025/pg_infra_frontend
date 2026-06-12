@@ -708,17 +708,17 @@ export default function TeamsPage() {
                 onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
               />
             </Field>
-            <Field label="Role">
-              <select
-                className="input"
-                value={inviteForm.role}
-                onChange={(event) => setInviteForm((current) => ({ ...current, role: event.target.value }))}
-              >
-                <option value="employee">Employee</option>
-                <option value="project_manager">Project Manager</option>
-                <option value="admin">Admin</option>
-              </select>
-            </Field>
+            <DropdownField
+              label="Role"
+              value={inviteForm.role}
+              onChange={(value) => setInviteForm((current) => ({ ...current, role: value }))}
+              options={[
+                { value: 'employee', label: 'Employee' },
+                { value: 'project_manager', label: 'Project Manager' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+              placeholder="Select role"
+            />
             <Field label="Department">
               <input
                 className="input"

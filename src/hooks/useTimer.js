@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+﻿import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { timerService } from '../services/timerService';
@@ -15,6 +15,15 @@ function normalizeLog(log) {
     user: log.user || null,
     elapsedSeconds: log.elapsedSeconds || Math.max(0, Math.floor((Date.now() - new Date(log.startTime).getTime()) / 1000)),
   };
+}
+
+function groupLogsByDate(logs = []) {
+  return logs.reduce((acc, log) => {
+    const key = new Date(log.date || log.startTime || Date.now()).toISOString().slice(0, 10);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(log);
+    return acc;
+  }, {});
 }
 
 export function useTimer() {
@@ -121,8 +130,10 @@ export function useTimer() {
 
   const logsQuery = useQuery({
     queryKey: ['timer-logs', userId || 'guest'],
-    queryFn: () => timerService.mine({ groupByDate: true }),
+    queryFn: () => timerService.mine({ preset: 'last-30-days', page: 1, limit: 100 }),
   });
+
+  const logs = logsQuery.data?.items || [];
 
   return useMemo(
     () => ({
@@ -131,8 +142,8 @@ export function useTimer() {
       elapsedSeconds,
       warningLevel,
       syncing,
-      logs: logsQuery.data?.logs || [],
-      grouped: logsQuery.data?.grouped || {},
+      logs,
+      grouped: groupLogsByDate(logs),
       dailySummary: logsQuery.data?.dailySummary || [],
       activeQuery,
       logsQuery,
@@ -148,6 +159,7 @@ export function useTimer() {
       isRunning,
       elapsedSeconds,
       syncing,
+      logs,
       logsQuery.data,
       activeQuery,
       logsQuery,
@@ -159,3 +171,4 @@ export function useTimer() {
     ],
   );
 }
+

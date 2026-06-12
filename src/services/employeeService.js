@@ -1,4 +1,4 @@
-import { api } from './api';
+﻿import { api } from './api';
 
 function unwrap(response) {
   return response.data?.data ?? response.data;
@@ -37,8 +37,8 @@ export const employeeService = {
     const response = await api.get(`/employees/${id}/workload`);
     return unwrap(response);
   },
-  async timesheets(id) {
-    const response = await api.get(`/employees/${id}/timesheets`);
+  async timesheets(id, params = {}) {
+    const response = await api.get(`/employees/${id}/timesheets`, { params });
     return unwrap(response);
   },
   async documents(id) {

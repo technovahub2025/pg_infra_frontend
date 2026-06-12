@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, ChevronDown, CircleUserRound, Plus, X } from 'lucide-react';
+import { CalendarDays, Plus, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { DropdownField } from '../shared/DropdownField';
 
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
@@ -74,19 +75,13 @@ export function KanbanAddCard({
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Priority</span>
-            <div className="relative">
-              <select className="input pr-10" value={priority} onChange={(event) => setPriority(event.target.value)}>
-                {PRIORITIES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </label>
+          <DropdownField
+            label="Priority"
+            value={priority}
+            onChange={(value) => setPriority(value)}
+            options={PRIORITIES.map((item) => ({ value: item, label: item }))}
+            placeholder="Select priority"
+          />
 
           <label className="block">
             <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Due date</span>
@@ -97,20 +92,13 @@ export function KanbanAddCard({
           </label>
         </div>
 
-        <label className="block">
-          <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Assignee</span>
-          <div className="relative">
-            <select className="input pr-10" value={assignee} onChange={(event) => setAssignee(event.target.value)}>
-              <option value="">Unassigned</option>
-              {employeesOptions.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-            <CircleUserRound className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
-        </label>
+        <DropdownField
+          label="Assignee"
+          value={assignee}
+          onChange={(value) => setAssignee(value)}
+          options={[{ value: '', label: 'Unassigned' }, ...employeesOptions.map((employee) => ({ value: employee.id, label: employee.name }))]}
+          placeholder="Unassigned"
+        />
 
         <div className="flex gap-2 pt-1">
           <Button

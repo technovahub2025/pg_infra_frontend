@@ -5,9 +5,21 @@ export function DataTable({
   emptyMessage = 'No records found.',
   scrollClassName = '',
   stickyHeader = false,
+  scrollAxis = 'x',
+  onRowClick,
+  rowClassName,
 }) {
+  function shouldIgnoreRowClick(target) {
+    return Boolean(target?.closest('button, a, input, textarea, select, [role="button"], [role="checkbox"]'));
+  }
+
+  const scrollContainerClassName =
+    scrollAxis === 'y'
+      ? `overflow-y-auto overflow-x-hidden ${scrollClassName}`.trim()
+      : `overflow-x-auto overflow-y-hidden ${scrollClassName}`.trim();
+
   return (
-    <div className={`overflow-x-auto ${scrollClassName}`.trim()}>
+    <div className={scrollContainerClassName}>
       <table className="min-w-full text-left text-sm">
         <thead className={`border-b border-[rgb(var(--line)/0.12)] text-[10px] uppercase tracking-[0.2em] text-slate-500 ${stickyHeader ? 'sticky top-0 z-10 bg-[rgb(var(--panel)/0.98)] backdrop-blur' : ''}`}>
           <tr>
@@ -24,7 +36,14 @@ export function DataTable({
         <tbody>
           {rows.length ? (
             rows.map((row, index) => (
-              <tr key={rowKey(row, index)} className="border-b border-[rgb(var(--line)/0.06)] transition hover:bg-[rgb(var(--panel-2)/0.7)]">
+              <tr
+                key={rowKey(row, index)}
+                onClick={(event) => {
+                  if (!onRowClick || shouldIgnoreRowClick(event.target)) return;
+                  onRowClick(row, index, event);
+                }}
+                className={`border-b border-[rgb(var(--line)/0.06)] transition hover:bg-[rgb(var(--panel-2)/0.7)] ${onRowClick ? 'cursor-pointer' : ''} ${typeof rowClassName === 'function' ? rowClassName(row, index) : rowClassName || ''}`}
+              >
                 {columns.map((column) => (
                   <td
                     key={column.key}
