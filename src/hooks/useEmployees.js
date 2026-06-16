@@ -66,10 +66,23 @@ export function useUpdateEmployeeRole() {
 export function useDeactivateEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => employeeService.deactivate(id),
+    mutationFn: (id) => employeeService.update(id, { isActive: false }),
     onSuccess: () => toast.success('Employee deactivated'),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+}
+
+export function useDeleteEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => employeeService.deleteEmployee(id),
+    onSuccess: () => toast.success('Employee deleted'),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employee'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });

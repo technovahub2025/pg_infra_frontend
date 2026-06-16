@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { DataTable } from '../shared/DataTable';
 
-export function ClientTable({ rows = [], onEdit, onDelete }) {
+export function ClientTable({ rows = [], onEdit, onDelete, onRowClick, selectedId }) {
   const [openMenuId, setOpenMenuId] = useState(null);
   const menuRef = useRef(null);
 
@@ -44,7 +44,7 @@ export function ClientTable({ rows = [], onEdit, onDelete }) {
     {
       key: 'actions',
       label: 'Actions',
-      className: 'w-[72px] whitespace-nowrap text-right',
+      className: 'w-[96px] whitespace-nowrap text-right',
       render: (row) => {
         const isOpen = openMenuId === row.id;
         return (
@@ -52,7 +52,7 @@ export function ClientTable({ rows = [], onEdit, onDelete }) {
             <Button
               size="sm"
               variant="secondary"
-              className="h-8 w-8 rounded-full px-0"
+              className="h-10 w-10 rounded-full px-0 shadow-sm"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpenMenuId((current) => (current === row.id ? null : row.id));
@@ -60,11 +60,11 @@ export function ClientTable({ rows = [], onEdit, onDelete }) {
               aria-label="Client actions"
               title="Client actions"
             >
-              <MoreVertical className="h-4 w-4" />
+              <MoreVertical className="h-5 w-5" />
             </Button>
 
             {isOpen ? (
-              <div className="absolute right-0 top-10 z-20 min-w-32 rounded-2xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.98)] p-2 shadow-2xl backdrop-blur">
+              <div className="absolute right-0 top-12 z-20 min-w-36 rounded-2xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.98)] p-2 shadow-2xl backdrop-blur">
                 {onEdit ? (
                   <button
                     type="button"
@@ -105,8 +105,11 @@ export function ClientTable({ rows = [], onEdit, onDelete }) {
       rows={rows}
       rowKey={(row) => row.id}
       emptyMessage="No clients found."
-      scrollClassName="max-h-[calc(100vh-25rem)] overflow-auto pr-1"
+      scrollClassName="scrollbar-none max-h-[calc(100vh-25rem)] pr-1"
       stickyHeader
+      scrollAxis="y"
+      onRowClick={onRowClick}
+      rowClassName={(row) => (selectedId && String(row.id) === String(selectedId) ? 'bg-sky-50/70' : '')}
     />
   );
 }

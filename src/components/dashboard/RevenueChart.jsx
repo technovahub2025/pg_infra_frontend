@@ -6,8 +6,7 @@ import { useUiStore } from '../../store/uiStore';
 import { clamp, cn } from '../../lib/utils';
 
 export function RevenueChart({ data = [] }) {
-  const theme = useUiStore((state) => state.theme);
-  const isLight = theme === 'light';
+  const isLight = useUiStore((state) => state.resolvedTheme) === 'light';
 
   const rows = useMemo(
     () =>

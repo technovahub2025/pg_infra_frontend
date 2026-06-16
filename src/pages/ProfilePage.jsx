@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -6,6 +6,7 @@ import { pageVariants } from '../utils/motionVariants';
 import { useAuthStore } from '../store/authStore';
 import { buildAvatarUrl } from '../utils/avatarUrl';
 import { useMyTasks } from '../hooks/useTasks';
+import { useTeams } from '../hooks/useTeams';
 import { useTimer } from '../hooks/useTimer';
 import { TimesheetCalendar } from '../components/timer/TimesheetCalendar';
 import { TaskCard } from '../components/tasks/TaskCard';
@@ -19,10 +20,21 @@ export default function ProfilePage() {
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const tasksQuery = useMyTasks();
+  const teamsQuery = useTeams();
   const timer = useTimer();
   const [activeTab, setActiveTab] = useState('Profile');
 
   const myTasks = tasksQuery.data || [];
+  const teams = teamsQuery.data || [];
+  const myTeams = useMemo(
+    () =>
+      teams.filter((team) =>
+        Array.isArray(team.members)
+          ? team.members.some((member) => String(member.id || member._id) === String(user?.id))
+          : false,
+      ),
+    [teams, user?.id],
+  );
   const todayTasks = myTasks.filter((task) => task.status !== 'done').slice(0, 4);
   const avatarSrc = buildAvatarUrl(user?.avatar, user?.updatedAt);
 
@@ -39,6 +51,9 @@ export default function ProfilePage() {
                 <Badge tone="amber">{user?.employeeId || 'Pending'}</Badge>
                 <Badge tone="blue">{user?.role || 'Employee'}</Badge>
                 <Badge tone="slate">{user?.department || 'Unassigned'}</Badge>
+                <Badge tone={myTeams.length ? 'green' : 'rose'}>
+                  {myTeams.length ? `${myTeams.length} team${myTeams.length === 1 ? '' : 's'}` : 'No team assigned'}
+                </Badge>
               </div>
               <p className="hero-subtitle mt-3">
                 {user?.designation || 'Employee'} · Joined {user?.joiningDate ? format(new Date(user.joiningDate), 'dd MMM yyyy') : '—'}
@@ -104,6 +119,43 @@ export default function ProfilePage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" variant="secondary" onClick={() => navigate('/my-tasks')}>View Tasks</Button>
                   <Button size="sm" variant="secondary" onClick={() => navigate('/my-timesheets')}>View Timesheets</Button>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">My Teams</div>
+                    <div className="mt-1 text-sm font-semibold text-[rgb(var(--text))]">Current membership</div>
+                  </div>
+                  <Badge tone={myTeams.length ? 'green' : 'rose'}>{myTeams.length}</Badge>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {myTeams.length ? (
+                    myTeams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="rounded-2xl border border-[rgb(var(--line)/0.14)] bg-white/70 px-3 py-2"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-[rgb(var(--text))]">{team.name}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {team.memberCount || 0} members
+                              {team.isActive === false ? ' • inactive' : ' • active'}
+                            </div>
+                          </div>
+                          <Badge tone={team.isActive === false ? 'rose' : 'green'}>
+                            {team.isActive === false ? 'Inactive' : 'Active'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-[rgb(var(--line)/0.18)] px-3 py-4 text-sm text-slate-500">
+                      You are not assigned to any team yet.
+                    </div>
+                  )}
                 </div>
               </div>
             </CardBody>

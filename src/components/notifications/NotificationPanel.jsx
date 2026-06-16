@@ -25,8 +25,16 @@ export function NotificationPanel({ open, notifications = [], onClose, onRead, o
   );
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-950/40 backdrop-blur-sm">
-      <div className="absolute bottom-0 right-0 top-auto h-[85vh] w-full max-w-md overflow-hidden rounded-t-[28px] p-0 sm:top-0 sm:h-full sm:rounded-none sm:p-4">
+    <div
+      className="fixed inset-0 z-[70] bg-slate-950/40 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="absolute bottom-0 right-0 top-auto h-[85vh] w-full max-w-md overflow-hidden rounded-t-[28px] p-0 sm:top-0 sm:h-full sm:rounded-none sm:p-4"
+        onClick={(event) => event.stopPropagation()}
+        role="presentation"
+      >
         <Card className="flex h-full flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>Notifications</CardTitle>

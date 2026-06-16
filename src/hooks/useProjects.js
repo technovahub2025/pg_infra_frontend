@@ -111,6 +111,18 @@ export function useUpdateProject() {
       queryClient.setQueryData(['project', id], (current) => (current ? normalizeProject({ ...current, ...payload, id }) : current));
       return { previous };
     },
+    onSuccess: (data, variables) => {
+      const updatedProject = normalizeProject(data);
+      const projectId = variables?.id || updatedProject.id;
+
+      queryClient.setQueryData(['project', projectId], updatedProject);
+      queryClient.setQueryData(['projects'], (current = []) =>
+        current.map((item) => (item.id === projectId ? normalizeProject({ ...item, ...updatedProject, id: projectId }) : item)),
+      );
+      queryClient.setQueryData(['project-summary', projectId], (current) =>
+        current ? { ...current, project: updatedProject, data: { ...current.data, project: updatedProject } } : current,
+      );
+    },
     onError: (_error, _variables, context) => {
       if (context?.previous) queryClient.setQueryData(['projects'], context.previous);
       toast.error('Failed to update project');

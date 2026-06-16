@@ -139,8 +139,7 @@ export function KpiGrid({ items = [] }) {
 }
 
 export function RevenueChartCard({ rows = [] }) {
-  const theme = useUiStore((state) => state.theme);
-  const isLight = theme === 'light';
+  const isLight = useUiStore((state) => state.resolvedTheme) === 'light';
   const summaryRows = useMemo(
     () =>
       rows
@@ -324,8 +323,7 @@ export function TaskCountdownPill({ dueDate, compact = false }) {
 }
 
 function ProgressRing({ value, status }) {
-  const theme = useUiStore((state) => state.theme);
-  const isLight = theme === 'light';
+  const isLight = useUiStore((state) => state.resolvedTheme) === 'light';
   const stroke = status === 'done' ? '#22c55e' : status === 'hold' ? '#f59e0b' : '#3b82f6';
   return (
     <div className="h-14 w-14">

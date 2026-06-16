@@ -1,19 +1,11 @@
-import { Navigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuthStore } from '../store/authStore';
-import { getHomePathForRole } from '../utils/roleUtils';
 import { ResetPasswordForm } from '../components/auth/ResetPasswordForm';
 import logo from '../assets/logo.png';
 import { cardVariants } from '../utils/motionVariants';
 
 export default function ResetPassword() {
   const { token } = useParams();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const user = useAuthStore((state) => state.user);
-
-  if (isAuthenticated && user) {
-    return <Navigate to={getHomePathForRole(user.role)} replace />;
-  }
 
   return (
     <motion.div className="min-h-screen bg-[#0B1929] px-5 py-10 text-slate-100" initial="initial" animate="animate" exit="exit" variants={cardVariants}>

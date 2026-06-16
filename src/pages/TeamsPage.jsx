@@ -14,6 +14,7 @@ import {
   PencilLine,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { pageVariants } from '../utils/motionVariants';
 import { useTeams, useCreateTeam, useDeleteTeam, useUpdateTeam } from '../hooks/useTeams';
 import { useInviteMember, usePendingInvites, useRevokeInvite, useResendInvite, useTeamMembers } from '../hooks/useTeam';
@@ -197,22 +198,27 @@ export default function TeamsPage() {
   }
 
   async function handleSaveTeam(values) {
-    const payload = {
-      name: values.name?.trim(),
-      description: values.description || '',
-      color: values.color || '#3b82f6',
-      members: Array.isArray(values.members) ? values.members : [],
-      isActive: Boolean(values.isActive),
-    };
+    try {
+      const payload = {
+        name: values.name?.trim(),
+        description: values.description || '',
+        color: values.color || '#3b82f6',
+        members: Array.isArray(values.members) ? values.members : [],
+        isActive: Boolean(values.isActive),
+      };
 
-    if (editingTeam?.id) {
-      await updateTeam.mutateAsync({ id: editingTeam.id, payload });
-    } else {
-      await createTeam.mutateAsync(payload);
+      if (editingTeam?.id) {
+        await updateTeam.mutateAsync({ id: editingTeam.id, payload });
+      } else {
+        await createTeam.mutateAsync(payload);
+      }
+
+      setTeamModalOpen(false);
+      setEditingTeam(null);
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || 'Could not save team';
+      toast.error(message);
     }
-
-    setTeamModalOpen(false);
-    setEditingTeam(null);
   }
 
   function handleDeleteTeam(team) {
@@ -382,7 +388,7 @@ export default function TeamsPage() {
                   </StatusBadge>
                 </div>
 
-                <div className="mt-4 space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+                <div className="scrollbar-none mt-4 space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
                   {filteredTeams.map((team) => {
                     const isSelected = String(team.id) === String(selectedTeam?.id);
                     return (
@@ -507,7 +513,7 @@ export default function TeamsPage() {
                           </div>
                           <StatusBadge tone="slate">{(selectedTeam.members || []).length}</StatusBadge>
                         </div>
-                        <div className="max-h-64 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
+                        <div className="scrollbar-none max-h-64 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
                           {(selectedTeam.members || []).map((member) => (
                             <div
                               key={member.id || member._id}
@@ -543,7 +549,7 @@ export default function TeamsPage() {
                             </div>
                             <StatusBadge tone="blue">{(selectedTeam.currentProjects || []).length}</StatusBadge>
                           </div>
-                          <div className="max-h-52 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
+                          <div className="scrollbar-none max-h-52 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
                             {(selectedTeam.currentProjects || []).map((project) => (
                               <button
                                 key={project.id}
@@ -574,7 +580,7 @@ export default function TeamsPage() {
                             </div>
                             <StatusBadge tone="amber">{(selectedTeam.currentTasks || []).length}</StatusBadge>
                           </div>
-                          <div className="max-h-52 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
+                          <div className="scrollbar-none max-h-52 space-y-2 overflow-y-auto pr-1 xl:min-h-0 xl:flex-1">
                             {(selectedTeam.currentTasks || []).map((task) => (
                               <div key={task.id} className="rounded-2xl border border-[rgb(var(--line)/0.12)] bg-white/80 px-3 py-2">
                                 <div className="truncate text-sm font-semibold text-[rgb(var(--text))]">{task.title}</div>
@@ -789,7 +795,7 @@ export default function TeamsPage() {
             ) : null}
 
             {!pendingInvitesQuery.isLoading && !pendingInvitesQuery.isError ? (
-              <div className="max-h-[60vh] overflow-y-auto rounded-[24px] border border-[rgb(var(--line)/0.14)] bg-white/75">
+              <div className="scrollbar-none max-h-[60vh] overflow-y-auto rounded-[24px] border border-[rgb(var(--line)/0.14)] bg-white/75">
                 {(pendingInvitesQuery.data || []).length ? (
                   <div className="divide-y divide-[rgb(var(--line)/0.12)]">
                     {(pendingInvitesQuery.data || []).map((invite) => (

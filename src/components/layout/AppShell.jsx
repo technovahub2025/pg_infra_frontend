@@ -42,7 +42,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed, theme, toggleTheme } = useUiStore();
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed, resolvedTheme, toggleTheme } = useUiStore();
   const panelOpen = useNotificationStore((state) => state.panelOpen);
   const togglePanel = useNotificationStore((state) => state.togglePanel);
   const notifications = useNotificationStore((state) => state.notifications);
@@ -241,7 +241,7 @@ export function AppShell() {
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
               >
-                {theme === 'dark' ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+                {resolvedTheme === 'dark' ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
               </button>
               <button
                 type="button"
@@ -280,8 +280,7 @@ export function AppShell() {
 }
 
 function SidebarLink({ item, collapsed }) {
-  const theme = useUiStore((state) => state.theme);
-  const isLight = theme === 'light';
+  const isLight = useUiStore((state) => state.resolvedTheme) === 'light';
   const iconMap = {
     LayoutDashboard,
     ChartPie,

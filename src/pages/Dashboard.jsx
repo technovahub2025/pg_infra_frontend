@@ -221,7 +221,7 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              <div className="max-h-[284px] space-y-2 overflow-auto pr-1">
+              <div className="scrollbar-none max-h-[284px] space-y-2 overflow-auto pr-1">
                 {recentActivity.length ? (
                   recentActivity.map((item) => (
                     <div

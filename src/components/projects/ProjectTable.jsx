@@ -199,7 +199,7 @@ export function ProjectTable({
         rows={rows}
         rowKey={(row) => row.id}
         emptyMessage="No projects found."
-        scrollClassName={`max-h-[calc(100vh-25rem)] overflow-auto pr-1 ${compact ? 'overflow-x-hidden' : ''}`}
+        scrollClassName={`scrollbar-none max-h-[calc(100vh-25rem)] !overflow-y-auto overflow-x-auto pr-1 ${compact ? 'overflow-x-hidden' : ''}`}
         stickyHeader
       />
 

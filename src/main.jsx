@@ -16,12 +16,35 @@ if (import.meta.env.PROD) {
 
 function ThemeSync() {
   const theme = useUiStore((state) => state.theme);
+  const resolvedTheme = useUiStore((state) => state.resolvedTheme);
+  const syncResolvedTheme = useUiStore((state) => state.syncResolvedTheme);
+
+  useEffect(() => {
+    syncResolvedTheme();
+  }, [theme, syncResolvedTheme]);
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.theme = theme;
-    root.style.colorScheme = theme;
-  }, [theme]);
+    root.dataset.theme = resolvedTheme;
+    root.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    if (theme !== 'system' || typeof window === 'undefined' || !window.matchMedia) {
+      return undefined;
+    }
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => syncResolvedTheme();
+
+    if (media.addEventListener) {
+      media.addEventListener('change', handleChange);
+      return () => media.removeEventListener('change', handleChange);
+    }
+
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
+  }, [theme, syncResolvedTheme]);
 
   return null;
 }

@@ -185,7 +185,7 @@ export function EmployeeTable({ rows = [], onEdit, onOpen, onToggleStatus, onDel
       rows={rows}
       rowKey={(row) => row.id}
       emptyMessage="No employees found."
-      scrollClassName="max-h-[calc(100dvh-24rem)] overflow-auto pr-1"
+      scrollClassName="max-h-[calc(100dvh-24rem)] !overflow-y-auto overflow-x-auto pr-1"
       stickyHeader
     />
   );

@@ -299,7 +299,16 @@ export default function ProjectDetail() {
 
   function renderModal() {
     if (activeModal === 'project') {
-      return <ProjectForm initialValues={modalData || project} onSubmit={handleProjectSave} onCancel={closeModal} />;
+      const projectValues = modalData?.id ? modalData : project;
+      return (
+        <ProjectForm
+          key={projectValues?.id || 'project-form'}
+          initialValues={projectValues}
+          employees={employees}
+          onSubmit={handleProjectSave}
+          onCancel={closeModal}
+        />
+      );
     }
     if (activeModal === 'stage') {
       return <StageForm initialValues={modalData} onSubmit={handleStageSave} onCancel={closeModal} />;

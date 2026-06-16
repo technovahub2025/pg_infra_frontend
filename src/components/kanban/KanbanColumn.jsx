@@ -79,7 +79,7 @@ export function KanbanColumn({
         ) : null}
       </div>
 
-      <div ref={scrollRef} className="mt-3 flex-1 overflow-y-auto pr-1">
+      <div ref={scrollRef} className="scrollbar-none mt-3 flex-1 overflow-y-auto pr-1">
         {shouldVirtualize ? (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
             {virtualizer.getVirtualItems().map((virtualItem) => {

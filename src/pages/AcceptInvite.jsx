@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { getHomePathForRole } from '../utils/roleUtils';
 import { AcceptInviteForm } from '../components/auth/AcceptInviteForm';
 import { PageLoader } from '../components/shared/PageLoader';
 import logo from '../assets/logo.png';
@@ -11,8 +10,6 @@ import { cardVariants } from '../utils/motionVariants';
 
 export default function AcceptInvite() {
   const { token } = useParams();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const user = useAuthStore((state) => state.user);
   const validateInvite = useAuthStore((state) => state.validateInvite);
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState(null);
@@ -39,10 +36,6 @@ export default function AcceptInvite() {
       mounted = false;
     };
   }, [token, validateInvite]);
-
-  if (isAuthenticated && user) {
-    return <Navigate to={getHomePathForRole(user.role)} replace />;
-  }
 
   if (loading) {
     return <PageLoader />;

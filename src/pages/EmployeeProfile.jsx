@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import {
   BadgeInfo,
   Building2,
@@ -171,7 +172,16 @@ export default function EmployeeProfile() {
                   Change Role
                 </Button>
               ) : null}
-              <Button onClick={() => forgotPassword({ email: employee.email })}>
+              <Button
+                onClick={async () => {
+                  try {
+                    await forgotPassword({ email: employee.email });
+                    toast.success(`Reset email sent to ${employee.email}`);
+                  } catch (error) {
+                    toast.error(error?.response?.data?.message || 'Could not send reset email');
+                  }
+                }}
+              >
                 <Mail className="h-4 w-4" />
                 Send reset email
               </Button>

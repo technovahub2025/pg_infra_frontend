@@ -19,7 +19,7 @@ const schema = z.object({
   projectIds: z.array(z.string()).optional(),
 });
 
-export function ClientForm({ initialValues, projects = [], onSubmit, onCancel }) {
+export function ClientForm({ initialValues, projects = [], onSubmit, onCancel, isSubmitting = false }) {
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -134,7 +134,9 @@ export function ClientForm({ initialValues, projects = [], onSubmit, onCancel })
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Save Client</Button>
+        <Button type="submit" disabled={isSubmitting || form.formState.isSubmitting}>
+          {isSubmitting || form.formState.isSubmitting ? 'Saving...' : 'Save Client'}
+        </Button>
       </div>
     </form>
   );

@@ -11,7 +11,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { pageVariants } from '../utils/motionVariants';
-import { useEmployees, useCreateEmployee, useUpdateEmployee } from '../hooks/useEmployees';
+import { useEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee } from '../hooks/useEmployees';
 import { EmployeeTable } from '../components/employees/EmployeeTable';
 import { EmployeeForm } from '../components/employees/EmployeeForm';
 import { ModalShell } from '../components/shared/ModalShell';
@@ -41,10 +41,12 @@ export default function Employees() {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [formError, setFormError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const employeesQuery = useEmployees({ search: debouncedSearch, department });
   const createEmployee = useCreateEmployee();
   const updateEmployee = useUpdateEmployee();
+  const deleteEmployeeMutation = useDeleteEmployee();
   const openConfirm = useUiStore((state) => state.openConfirm);
 
   const employees = useMemo(() => employeesQuery.data || [], [employeesQuery.data]);
@@ -69,7 +71,19 @@ export default function Employees() {
 
   function editEmployee(employee) {
     setEditingEmployee(employee);
+    setFormError('');
     setFormOpen(true);
+  }
+
+  function openAddEmployee() {
+    setEditingEmployee(null);
+    setFormError('');
+    setFormOpen(true);
+  }
+
+  function closeEmployeeForm() {
+    setFormOpen(false);
+    setFormError('');
   }
 
   function toggleEmployeeStatus(employee) {
@@ -88,11 +102,11 @@ export default function Employees() {
   function deleteEmployee(employee) {
     openConfirm({
       title: 'Delete employee',
-      message: `Delete ${employee.name}? This will deactivate the account and remove access.`,
+      message: `Delete ${employee.name}? This will remove the employee record from the system.`,
       confirmLabel: 'Delete',
       tone: 'rose',
       onConfirm: async () => {
-        await updateEmployee.mutateAsync({ id: employee.id, payload: { isActive: false } });
+        await deleteEmployeeMutation.mutateAsync(employee.id);
       },
     });
   }
@@ -107,7 +121,7 @@ export default function Employees() {
             <p className="hero-subtitle max-w-3xl">Manage people, invite members, and review assignments, workloads, and documents.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => { setEditingEmployee(null); setFormOpen(true); }}>
+            <Button onClick={openAddEmployee}>
               <UserPlus className="h-4 w-4" />
               Add Employee
             </Button>
@@ -193,21 +207,37 @@ export default function Employees() {
         <ModalShell
           title={editingEmployee ? 'Edit Employee' : 'Add Employee'}
           description="Save people updates using the live API."
-          onClose={() => setFormOpen(false)}
+          onClose={closeEmployeeForm}
           widthClassName="max-w-4xl"
         >
-          <EmployeeForm
-            initialValues={editingEmployee}
-            onCancel={() => setFormOpen(false)}
-            onSubmit={async (values) => {
-              if (editingEmployee) {
-                await updateEmployee.mutateAsync({ id: editingEmployee.id, payload: values });
-              } else {
-                await createEmployee.mutateAsync(values);
-              }
-              setFormOpen(false);
-            }}
-          />
+          <div className="space-y-4">
+            {formError ? (
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-500/10 px-4 py-3 text-sm text-rose-600">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <div className="font-semibold">Could not save employee</div>
+                  <div className="mt-0.5 text-sm text-rose-500">{formError}</div>
+                </div>
+              </div>
+            ) : null}
+            <EmployeeForm
+              initialValues={editingEmployee}
+              onCancel={closeEmployeeForm}
+              onSubmit={async (values) => {
+                try {
+                  setFormError('');
+                  if (editingEmployee) {
+                    await updateEmployee.mutateAsync({ id: editingEmployee.id, payload: values });
+                  } else {
+                    await createEmployee.mutateAsync(values);
+                  }
+                  closeEmployeeForm();
+                } catch (error) {
+                  setFormError(error?.response?.data?.message || error?.message || 'Request failed');
+                }
+              }}
+            />
+          </div>
         </ModalShell>
       ) : null}
     </motion.div>

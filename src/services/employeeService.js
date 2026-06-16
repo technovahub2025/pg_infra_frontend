@@ -25,7 +25,7 @@ export const employeeService = {
     const response = await api.put(`/employees/${id}/role`, payload);
     return unwrap(response);
   },
-  async deactivate(id) {
+  async deleteEmployee(id) {
     const response = await api.delete(`/employees/${id}`);
     return unwrap(response);
   },

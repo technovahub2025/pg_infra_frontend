@@ -181,13 +181,19 @@ export default function Projects() {
       </Card>
 
       {activeModal === 'project' ? (
-        <ModalShell
-          title={modalData?.id ? 'Edit Project' : 'Add Project'}
-          description="Create or update a project record."
-          onClose={closeModal}
-        >
-        <ProjectForm initialValues={modalData} employees={employees} onSubmit={handleSave} onCancel={closeModal} />
-        </ModalShell>
+      <ModalShell
+        title={modalData?.id ? 'Edit Project' : 'Add Project'}
+        description="Create or update a project record."
+        onClose={closeModal}
+      >
+        <ProjectForm
+          key={modalData?.id || 'project-form'}
+          initialValues={modalData}
+          employees={employees}
+          onSubmit={handleSave}
+          onCancel={closeModal}
+        />
+      </ModalShell>
       ) : null}
     </motion.div>
   );
