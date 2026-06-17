@@ -531,7 +531,7 @@ export function TimesheetExplorer({ scope = 'mine', employeeId, allowManualEntry
               </div>
             </CardHeader>
             {filtersOpen ? (
-              <CardBody id="timesheet-filters-panel" className="space-y-4">
+              <div id="timesheet-filters-panel" className="space-y-4 border-t border-[rgb(var(--line)/0.12)] px-4 py-4 sm:px-5">
                 <div className="grid gap-3 xl:grid-cols-6">
                   <DropdownField
                     label="Preset"
@@ -602,7 +602,7 @@ export function TimesheetExplorer({ scope = 'mine', employeeId, allowManualEntry
                   <input className="input w-auto min-w-[220px]" value={saveName} onChange={(event) => setSaveName(event.target.value)} placeholder="Save current filter as..." />
                   <Button size="sm" onClick={handleSaveFilter}>Save</Button>
                 </div>
-              </CardBody>
+              </div>
             ) : null}
           </Card>
 

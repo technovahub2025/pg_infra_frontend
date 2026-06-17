@@ -23,7 +23,7 @@ export function VirtualList({ items = [], estimateSize = 120, renderItem, classN
   );
 
   return (
-    <div ref={parentRef} className={`overflow-y-auto ${className}`}>
+    <div ref={parentRef} className={`scrollbar-gutter-stable overflow-y-auto overflow-x-hidden ${className}`}>
       <div style={{ height: totalSize, position: 'relative' }}>
         {renderedItems.map(({ key, virtualRow, item }) => (
           <div

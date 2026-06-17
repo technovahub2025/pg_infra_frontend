@@ -19,7 +19,7 @@ export function TimeExtensionRequestsPanel({ compact = false }) {
   if (!requests.length && compact) return null;
 
   return (
-    <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4">
+    <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-orange-500/8 to-rose-500/8 p-4 shadow-[0_22px_70px_-50px_rgba(245,158,11,0.45)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.2em] text-amber-700">Extra Time</div>
@@ -37,7 +37,7 @@ export function TimeExtensionRequestsPanel({ compact = false }) {
             const requestId = request.id || request._id;
             const grantedMinutes = Number(minutesById[requestId] || request.requestedMinutes || 0);
             return (
-              <div key={requestId} className="rounded-2xl border border-white/20 bg-white/70 p-3 shadow-sm">
+              <div key={requestId} className="theme-panel-muted rounded-2xl border p-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-semibold text-[rgb(var(--text))]">{task.title || 'Task'}</div>

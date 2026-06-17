@@ -145,6 +145,10 @@
     scrollbar-color: rgb(51 65 85) transparent;
   }
 
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;

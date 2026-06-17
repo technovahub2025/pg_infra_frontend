@@ -208,7 +208,7 @@ export default function EmployeeProfile() {
         ))}
       </section>
 
-      <div className="rounded-2xl border border-white/10 bg-white/55 p-2 shadow-sm backdrop-blur">
+      <div className="rounded-[24px] border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.92)] p-2.5 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur">
         <EmployeeProfileTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 

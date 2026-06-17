@@ -236,7 +236,7 @@ export function ProjectForm({ initialValues, employees = [], onSubmit, onCancel 
         <input className="input" type="number" step="0.01" {...register('balance')} />
       </Field>
 
-      <div className="sm:col-span-2 mt-2 flex flex-col gap-3 border-t border-[rgba(15,23,42,0.08)] bg-[#ffffff] px-5 py-4 -mx-5 sm:flex-row sm:justify-end">
+      <div className="sm:col-span-2 mt-2 flex flex-col gap-3 border-t border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.96)] px-5 py-4 -mx-5 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

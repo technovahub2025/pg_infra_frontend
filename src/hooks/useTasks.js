@@ -97,7 +97,7 @@ export function useSaveKanbanColumns() {
   });
 }
 
-export function useTask(id) {
+export function useTask(id, queryOptions = {}) {
   return useQuery({
     queryKey: ['task', id],
     enabled: Boolean(id),
@@ -105,6 +105,9 @@ export function useTask(id) {
       const payload = await taskService.get(id);
       return normalizeTask(payload);
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    ...queryOptions,
   });
 }
 

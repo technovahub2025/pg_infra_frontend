@@ -382,21 +382,32 @@ export default function ProjectDetail() {
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="scrollbar-none flex flex-nowrap gap-2 overflow-x-auto rounded-[24px] border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.92)] p-2.5 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur">
         {tabs.map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold transition ${
-              activeTab === tab ? 'bg-sky-500 text-slate-950 shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+            className={`relative isolate shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors duration-300 ease-out ${
+              activeTab === tab ? 'text-slate-950' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {TAB_ICONS[tab] ? <span className="inline-flex h-4 w-4 items-center justify-center">{(() => {
-              const Icon = TAB_ICONS[tab];
-              return <Icon className="h-3.5 w-3.5" />;
-            })()}</span> : null}
-            {tab}
+            {activeTab === tab ? (
+              <motion.span
+                layoutId="project-detail-tab-pill"
+                className="absolute inset-0 -z-10 rounded-full bg-sky-500 shadow-[0_10px_24px_rgba(14,165,233,0.24)]"
+                transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+              />
+            ) : null}
+            {TAB_ICONS[tab] ? (
+              <span className="relative z-10 inline-flex h-4 w-4 items-center justify-center">
+                {(() => {
+                  const Icon = TAB_ICONS[tab];
+                  return <Icon className="h-3.5 w-3.5" />;
+                })()}
+              </span>
+            ) : null}
+            <span className="relative z-10">{tab}</span>
           </button>
         ))}
       </div>

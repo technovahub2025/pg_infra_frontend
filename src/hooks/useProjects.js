@@ -56,7 +56,7 @@ export function useProjectSummary(id) {
   });
 }
 
-export function useProjectStages(id) {
+export function useProjectStages(id, queryOptions = {}) {
   return useQuery({
     queryKey: ['project-stages', id],
     enabled: Boolean(id),
@@ -68,6 +68,9 @@ export function useProjectStages(id) {
         return [];
       }
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    ...queryOptions,
   });
 }
 

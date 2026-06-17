@@ -8,13 +8,18 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  ClipboardList,
   FolderKanban,
+  MessageSquareText,
+  MessagesSquare,
   PencilLine,
   PlayCircle,
+  TimerReset,
   Tag,
   Trash2,
   UserRound,
   Users,
+  LayoutDashboard,
 } from 'lucide-react';
 import { pageVariants } from '../utils/motionVariants';
 import { useAuthStore } from '../store/authStore';
@@ -46,31 +51,15 @@ export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
-  const taskQuery = useTask(id);
+  const taskQuery = useTask(id, { staleTime: 30_000, refetchOnWindowFocus: false });
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const addComment = useAddTaskComment();
-  const requestExtension = useRequestTaskTimeExtension();
-  const { activeLog, elapsedSeconds, isRunning, startTimer } = useTimer();
   const [editOpen, setEditOpen] = useState(false);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [requestedMinutes, setRequestedMinutes] = useState(30);
-  const [reason, setReason] = useState('');
 
   const task = taskQuery.data;
   const projectId = task?.projectId || task?.project?.id || task?.project?._id || task?.project || '';
   const stageId = task?.stageId || task?.stage?.id || task?.stage?._id || task?.stage || '';
-  const employeesQuery = useEmployees({}, { enabled: Boolean(currentUser?.role && ['superadmin', 'admin', 'project_manager'].includes(currentUser.role)) });
-  const teamsQuery = useTeams({}, { enabled: Boolean(currentUser?.role && ['superadmin', 'admin', 'project_manager'].includes(currentUser.role)) });
-  const stagesQuery = useProjectStages(projectId);
-
-  const isThisTaskActive = isRunning && String(activeLog?.task?.id || activeLog?.task?._id || activeLog?.task) === String(id);
-  const isBudgeted = Number(task?.estimatedDurationMinutes || 0) > 0;
-  const timerExpiresAt = task?.timerExpiresAt ? new Date(task.timerExpiresAt).getTime() : null;
-  const remainingSeconds = timerExpiresAt ? Math.floor((timerExpiresAt - Date.now()) / 1000) : null;
-  const timerExpired =
-    (isBudgeted && task?.timerStatus === 'expired') ||
-    (isBudgeted && timerExpiresAt && remainingSeconds <= 0 && task?.status !== 'done');
   const canManage = ['superadmin', 'admin', 'project_manager'].includes(currentUser?.role);
   const canDelete = ['superadmin', 'admin'].includes(currentUser?.role);
   const canStart = useMemo(() => {
@@ -87,6 +76,20 @@ export default function TaskDetail() {
       teamMemberIds.some((memberId) => String(memberId) === String(currentUser.id))
     );
   }, [canManage, currentUser?.id, task]);
+  const canEditTask = Boolean(canManage && editOpen);
+  const employeesQuery = useEmployees(
+    {},
+    { enabled: canEditTask, staleTime: 60_000, refetchOnWindowFocus: false },
+  );
+  const teamsQuery = useTeams(
+    {},
+    { enabled: canEditTask, staleTime: 60_000, refetchOnWindowFocus: false },
+  );
+  const stagesQuery = useProjectStages(projectId, {
+    enabled: canEditTask && Boolean(projectId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   if (taskQuery.isLoading) {
     return <SkeletonCard />;
@@ -130,62 +133,97 @@ export default function TaskDetail() {
     : Array.isArray(task.assignedTeam)
       ? task.assignedTeam.map((member) => member?.name || member?.label || '').filter(Boolean)
       : [];
+  const commentsCount = Array.isArray(task.comments) ? task.comments.length : 0;
+  const requestCount = task.pendingTimeExtensionRequest ? 1 : 0;
   const quickStats = [
     { label: 'Status', value: task.status || 'todo', tone: task.status === 'done' ? 'green' : task.status === 'blocked' ? 'rose' : 'blue', icon: CheckCircle2 },
     { label: 'Priority', value: task.priority || 'Medium', tone: String(task.priority).toLowerCase() === 'critical' ? 'rose' : 'amber', icon: AlertCircle },
-    { label: 'Timer', value: task.estimatedDurationMinutes ? formatDuration(Number(task.estimatedDurationMinutes) * 60) : 'No budget', tone: isBudgeted ? 'blue' : 'slate', icon: Clock3 },
-    { label: 'Remaining', value: task.timerExpiresAt ? (timerExpired ? 'Expired' : formatDuration(Math.max(0, remainingSeconds || 0))) : '-', tone: timerExpired ? 'rose' : 'green', icon: Clock3 },
+    { label: 'Comments', value: commentsCount, tone: commentsCount ? 'green' : 'slate', icon: MessageSquareText },
+    { label: 'Requests', value: requestCount, tone: requestCount ? 'amber' : 'slate', icon: AlertCircle },
+  ];
+
+  const sectionLinks = [
+    { href: '#task-overview', label: 'Overview', description: 'Snapshot and ownership', icon: LayoutDashboard },
+    { href: '#task-work', label: 'Work', description: 'Description, tags, files', icon: ClipboardList },
+    { href: '#task-comments', label: 'Comments', description: 'Collaboration trail', icon: MessagesSquare },
+    { href: '#task-timer', label: 'Timer', description: 'Budget and live control', icon: TimerReset },
   ];
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6 pb-8">
-      <section className="theme-hero theme-hero-blue overflow-hidden p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <button type="button" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <p className="hero-kicker">Task Detail</p>
-            <h1 className="hero-title break-words">{task.title || 'Untitled task'}</h1>
-            <p className="hero-subtitle mt-2">{task.description || 'No description provided.'}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <TaskStatusBadge value={task.status} />
-              <TaskPriorityBadge value={task.priority} />
-              {task.projectName || task.project?.projectName ? (
-                <Badge tone="blue">
-                  <FolderKanban className="h-3.5 w-3.5" />
-                  {task.projectName || task.project?.projectName}
-                </Badge>
+      <section className="theme-hero theme-hero-blue overflow-hidden shadow-[0_28px_80px_-52px_rgba(15,23,42,0.38)]">
+        <div className="relative z-10 p-5 sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <button
+                type="button"
+                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
+                onClick={() => navigate(-1)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <p className="hero-kicker">Task Detail</p>
+              <h1 className="hero-title break-words">{task.title || 'Untitled task'}</h1>
+              <p className="hero-subtitle mt-2">{task.description || 'No description provided.'}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <TaskStatusBadge value={task.status} />
+                <TaskPriorityBadge value={task.priority} />
+                {task.projectName || task.project?.projectName ? (
+                  <Badge tone="blue">
+                    <FolderKanban className="h-3.5 w-3.5" />
+                    {task.projectName || task.project?.projectName}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canManage ? (
+                <>
+                  <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                    <PencilLine className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  {canDelete ? (
+                    <Button variant="danger" onClick={handleDelete}>
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {canManage ? (
-              <>
-                <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                  <PencilLine className="h-4 w-4" />
-                  Edit
-                </Button>
-                {canDelete ? (
-                  <Button variant="danger" onClick={handleDelete}>
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                ) : null}
-              </>
-            ) : null}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {quickStats.map((item) => (
+              <QuickStat key={item.label} {...item} />
+            ))}
           </div>
-        </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {quickStats.map((item) => <QuickStat key={item.label} {...item} />)}
         </div>
       </section>
 
+      <div className="theme-panel-muted sticky top-[88px] z-20 rounded-3xl border border-[rgb(var(--line)/0.12)] px-3 py-3 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+          <div className="flex flex-wrap items-center gap-2">
+          {sectionLinks.map((section) => (
+            <a
+              key={section.href}
+              href={section.href}
+              className="inline-flex min-w-[140px] flex-1 flex-col rounded-2xl border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.9)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-sky-400/30 hover:bg-[rgb(var(--panel)/1)]"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--text))]">
+                <section.icon className="h-4 w-4 text-sky-500" />
+                {section.label}
+              </span>
+              <span className="mt-1 text-xs text-slate-500">{section.description}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
         <div className="space-y-6">
-          <Card className="overflow-hidden">
-            <div className="border-b border-white/10 px-5 py-4">
+          <Card id="task-overview" className="overflow-hidden border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] shadow-[0_22px_70px_-48px_rgba(15,23,42,0.45)] ring-1 ring-[rgb(var(--line)/0.06)]">
+            <div className="border-b border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] px-5 py-4">
               <SectionTitle title="Task Snapshot" />
             </div>
             <CardBody className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -201,14 +239,14 @@ export default function TaskDetail() {
             </CardBody>
           </Card>
 
-          <Card className="overflow-hidden">
-            <div className="border-b border-white/10 px-5 py-4">
+          <Card id="task-work" className="overflow-hidden border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] shadow-[0_22px_70px_-48px_rgba(15,23,42,0.45)] ring-1 ring-[rgb(var(--line)/0.06)]">
+            <div className="border-b border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] px-5 py-4">
               <SectionTitle title="Work Details" />
             </div>
             <CardBody className="space-y-4">
               <DetailBlock label="Description" value={task.description || 'No description provided.'} />
               <DetailBlock label="Next Action" value={task.nextAction || '-'} />
-              <div className="rounded-2xl border border-white/10 bg-white/60 p-4">
+              <div className="rounded-2xl border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.84)] p-4">
                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-500">
                   <Tag className="h-3.5 w-3.5" />
                   Tags
@@ -225,7 +263,7 @@ export default function TaskDetail() {
             </CardBody>
           </Card>
 
-          <Card className="overflow-hidden">
+          <Card id="task-comments" className="overflow-hidden border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] shadow-[0_22px_70px_-48px_rgba(15,23,42,0.45)] ring-1 ring-[rgb(var(--line)/0.06)]">
             <CardBody className="p-0">
               <TaskComments comments={task.comments || []} maxHeightClassName="max-h-[22rem]" onAdd={(text) => addComment.mutateAsync({ id: task.id, text })} />
             </CardBody>
@@ -234,83 +272,12 @@ export default function TaskDetail() {
 
         <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
           <TimeExtensionRequestsPanel compact />
-          <Card className="overflow-hidden">
-            <div className="border-b border-white/10 px-5 py-4">
-              <SectionTitle title="Timer Control" />
-            </div>
-            <CardBody className="space-y-4">
-              <div className="rounded-3xl border border-sky-400/20 bg-gradient-to-br from-sky-500/10 to-emerald-500/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Current Timer</div>
-                    <div className="mt-2 text-3xl font-semibold text-[rgb(var(--text))]">
-                      {task.timerExpiresAt ? (timerExpired ? 'Expired' : formatDuration(Math.max(0, remainingSeconds || 0))) : 'Not started'}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {task.estimatedDurationMinutes ? `${formatDuration(Number(task.estimatedDurationMinutes) * 60)} budget` : 'No completion timer configured'}
-                    </div>
-                  </div>
-                  <Badge tone={timerExpired ? 'rose' : isThisTaskActive ? 'green' : 'slate'}>
-                    {timerExpired ? 'Expired' : isThisTaskActive ? 'Running' : task.timerStatus || 'Not started'}
-                  </Badge>
-                </div>
-              </div>
-              <div className="grid gap-3">
-                <MetaItem icon={Clock3} label="Budget" value={task.estimatedDurationMinutes ? formatDuration(Number(task.estimatedDurationMinutes) * 60) : 'No timer budget'} />
-                <MetaItem icon={Clock3} label="Started" value={formatDateTime(task.timerStartedAt)} />
-                <MetaItem icon={Clock3} label="Expires" value={formatDateTime(task.timerExpiresAt)} />
-                <MetaItem icon={Clock3} label="Remaining" value={task.timerExpiresAt ? (timerExpired ? 'Expired' : formatDuration(Math.max(0, remainingSeconds || 0))) : '-'} />
-                <MetaItem icon={Clock3} label="Logged" value={task.totalTimeLogged ? formatDuration(task.totalTimeLogged) : '-'} />
-                <MetaItem icon={Clock3} label="Extra Granted" value={task.extraTimeMinutesGranted ? `${task.extraTimeMinutesGranted} minutes` : '-'} />
-              </div>
-
-              {task.status !== 'done' ? (
-                <div className="flex flex-wrap gap-2 border-t border-[rgb(var(--line)/0.16)] pt-4">
-                  {isThisTaskActive && isBudgeted ? (
-                    <Button onClick={handleComplete}>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Complete Task
-                    </Button>
-                  ) : canStart && !timerExpired ? (
-                    <Button onClick={() => startTimer(task.id, projectId, stageId, '')}>
-                      <PlayCircle className="h-4 w-4" />
-                      Start Timer
-                    </Button>
-                  ) : null}
-                  {timerExpired && canStart ? (
-                    <Button variant="danger" disabled={Boolean(task.pendingTimeExtensionRequest)} onClick={() => setRequestOpen((current) => !current)}>
-                      {task.pendingTimeExtensionRequest ? 'Extra Time Pending' : 'Request Extra Time'}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {requestOpen && !task.pendingTimeExtensionRequest ? (
-                <div className="grid gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3">
-                  <input className="input" type="number" min="1" value={requestedMinutes} onChange={(event) => setRequestedMinutes(event.target.value)} placeholder="Minutes" />
-                  <textarea className="input min-h-[96px]" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Valid reason for extra time" />
-                  <Button
-                    variant="danger"
-                    disabled={!reason.trim() || !Number(requestedMinutes)}
-                    onClick={async () => {
-                      await requestExtension.mutateAsync({ id: task.id, payload: { requestedMinutes: Number(requestedMinutes), reason } });
-                      setReason('');
-                      setRequestOpen(false);
-                    }}
-                  >
-                    Submit Request
-                  </Button>
-                </div>
-              ) : null}
-
-              {task.latestTimeExtensionRequest ? (
-                <DetailBlock
-                  label="Latest Extra-Time Request"
-                  value={`${task.latestTimeExtensionRequest.status} · ${task.latestTimeExtensionRequest.requestedMinutes} minutes · ${task.latestTimeExtensionRequest.reason}`}
-                />
-              ) : null}
-            </CardBody>
-          </Card>
+          <TaskTimerPanel
+            task={task}
+            projectId={projectId}
+            stageId={stageId}
+            onComplete={handleComplete}
+          />
         </div>
       </div>
 
@@ -334,22 +301,37 @@ export default function TaskDetail() {
 }
 
 function SectionTitle({ title }) {
-  return <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{title}</div>;
+  const icons = {
+    'Task Snapshot': LayoutDashboard,
+    'Work Details': ClipboardList,
+    'Timer Control': TimerReset,
+  };
+  const Icon = icons[title] || MessageSquareText;
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+      <Icon className="h-3.5 w-3.5 text-sky-500" />
+      {title}
+    </div>
+  );
 }
 
 function QuickStat({ label, value, icon: Icon, tone = 'blue' }) {
   const tones = {
-    blue: 'border-sky-200 bg-sky-50/80 text-sky-700',
-    green: 'border-emerald-200 bg-emerald-50/80 text-emerald-700',
-    amber: 'border-amber-200 bg-amber-50/80 text-amber-700',
-    rose: 'border-rose-200 bg-rose-50/80 text-rose-700',
-    slate: 'border-slate-200 bg-white/70 text-slate-700',
+    blue: 'theme-panel-muted border-sky-200/60 bg-sky-500/8 text-sky-700 shadow-[0_14px_28px_-20px_rgba(59,130,246,0.5)]',
+    green: 'theme-panel-muted border-emerald-200/60 bg-emerald-500/8 text-emerald-700 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.45)]',
+    amber: 'theme-panel-muted border-amber-200/60 bg-amber-500/8 text-amber-700 shadow-[0_14px_28px_-20px_rgba(245,158,11,0.48)]',
+    rose: 'theme-panel-muted border-rose-200/60 bg-rose-500/8 text-rose-700 shadow-[0_14px_28px_-20px_rgba(244,63,94,0.45)]',
+    slate: 'theme-panel-muted border-[rgb(var(--line)/0.12)] text-slate-700 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.28)]',
   };
   return (
-    <div className={`rounded-2xl border px-4 py-3 shadow-sm ${tones[tone] || tones.blue}`}>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
+    <div className={`rounded-2xl border px-4 py-3 ${tones[tone] || tones.blue}`}>
+      <div className="flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-[rgb(var(--panel)/0.88)] ring-1 ring-[rgb(var(--line)/0.12)]">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          {label}
+        </span>
       </div>
       <div className="mt-2 truncate text-lg font-semibold text-[rgb(var(--text))]">{String(value || '-')}</div>
     </div>
@@ -358,7 +340,7 @@ function QuickStat({ label, value, icon: Icon, tone = 'blue' }) {
 
 function DetailBlock({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/60 p-4">
+    <div className="theme-panel-muted rounded-2xl border p-4">
       <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{label}</div>
       <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[rgb(var(--text))]">{String(value || '-')}</div>
     </div>
@@ -367,13 +349,115 @@ function DetailBlock({ label, value }) {
 
 function MetaItem({ label, value, icon: Icon }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/60 p-4">
+    <div className="theme-panel-muted rounded-2xl border p-4">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-        {Icon ? <Icon className="h-3.5 w-3.5 text-slate-400" /> : null}
+        {Icon ? (
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[rgb(var(--panel)/0.88)] text-sky-500 ring-1 ring-[rgb(var(--line)/0.12)]">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
         <span>{label}</span>
       </div>
       <div className="mt-2 text-sm font-semibold text-[rgb(var(--text))]">{String(value || '-')}</div>
     </div>
+  );
+}
+
+function TaskTimerPanel({ task, projectId, stageId, canStart, onComplete }) {
+  const { activeLog, isRunning, startTimer } = useTimer();
+  const requestExtension = useRequestTaskTimeExtension();
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestedMinutes, setRequestedMinutes] = useState(30);
+  const [reason, setReason] = useState('');
+
+  const isThisTaskActive = isRunning && String(activeLog?.task?.id || activeLog?.task?._id || activeLog?.task) === String(task.id);
+  const isBudgeted = Number(task?.estimatedDurationMinutes || 0) > 0;
+  const timerExpiresAt = task?.timerExpiresAt ? new Date(task.timerExpiresAt).getTime() : null;
+  const remainingSeconds = timerExpiresAt ? Math.floor((timerExpiresAt - Date.now()) / 1000) : null;
+  const timerExpired =
+    (isBudgeted && task?.timerStatus === 'expired') ||
+    (isBudgeted && timerExpiresAt && remainingSeconds <= 0 && task?.status !== 'done');
+  const timerLabel = task.timerExpiresAt ? (timerExpired ? 'Expired' : formatDuration(Math.max(0, remainingSeconds || 0))) : 'Not started';
+  const timerStatusTone = timerExpired ? 'rose' : isThisTaskActive ? 'green' : 'slate';
+
+  return (
+    <Card id="task-timer" className="overflow-hidden border border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] shadow-[0_22px_70px_-48px_rgba(15,23,42,0.45)] ring-1 ring-[rgb(var(--line)/0.06)]">
+      <div className="border-b border-[rgb(var(--line)/0.12)] bg-[rgb(var(--panel)/0.98)] px-5 py-4">
+        <SectionTitle title="Timer Control" />
+      </div>
+      <CardBody className="space-y-4">
+        <div className="rounded-3xl border border-sky-400/20 bg-gradient-to-br from-sky-500/12 via-cyan-500/8 to-emerald-500/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+                <TimerReset className="h-3.5 w-3.5" />
+                Current Timer
+              </div>
+              <div className="mt-2 text-3xl font-semibold text-[rgb(var(--text))]">{timerLabel}</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {task.estimatedDurationMinutes ? `${formatDuration(Number(task.estimatedDurationMinutes) * 60)} budget` : 'No completion timer configured'}
+              </div>
+            </div>
+            <Badge tone={timerStatusTone}>{timerExpired ? 'Expired' : isThisTaskActive ? 'Running' : task.timerStatus || 'Not started'}</Badge>
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          <MetaItem icon={Clock3} label="Budget" value={task.estimatedDurationMinutes ? formatDuration(Number(task.estimatedDurationMinutes) * 60) : 'No timer budget'} />
+          <MetaItem icon={Clock3} label="Started" value={formatDateTime(task.timerStartedAt)} />
+          <MetaItem icon={Clock3} label="Expires" value={formatDateTime(task.timerExpiresAt)} />
+          <MetaItem icon={Clock3} label="Remaining" value={task.timerExpiresAt ? (timerExpired ? 'Expired' : formatDuration(Math.max(0, remainingSeconds || 0))) : '-'} />
+          <MetaItem icon={Clock3} label="Logged" value={task.totalTimeLogged ? formatDuration(task.totalTimeLogged) : '-'} />
+          <MetaItem icon={Clock3} label="Extra Granted" value={task.extraTimeMinutesGranted ? `${task.extraTimeMinutesGranted} minutes` : '-'} />
+        </div>
+
+        {task.status !== 'done' ? (
+          <div className="flex flex-wrap gap-2 border-t border-[rgb(var(--line)/0.16)] pt-4">
+            {isThisTaskActive && isBudgeted ? (
+              <Button onClick={onComplete}>
+                <CheckCircle2 className="h-4 w-4" />
+                Complete Task
+              </Button>
+            ) : canStart && !timerExpired ? (
+              <Button onClick={() => startTimer(task.id, projectId, stageId, '')}>
+                <PlayCircle className="h-4 w-4" />
+                Start Timer
+              </Button>
+            ) : null}
+            {timerExpired && canStart ? (
+              <Button variant="danger" disabled={Boolean(task.pendingTimeExtensionRequest)} onClick={() => setRequestOpen((current) => !current)}>
+                {task.pendingTimeExtensionRequest ? 'Extra Time Pending' : 'Request Extra Time'}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {requestOpen && !task.pendingTimeExtensionRequest ? (
+          <div className="grid gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3">
+            <input className="input" type="number" min="1" value={requestedMinutes} onChange={(event) => setRequestedMinutes(event.target.value)} placeholder="Minutes" />
+            <textarea className="input min-h-[96px]" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Valid reason for extra time" />
+            <Button
+              variant="danger"
+              disabled={!reason.trim() || !Number(requestedMinutes)}
+              onClick={async () => {
+                await requestExtension.mutateAsync({ id: task.id, payload: { requestedMinutes: Number(requestedMinutes), reason } });
+                setReason('');
+                setRequestOpen(false);
+              }}
+            >
+              Submit Request
+            </Button>
+          </div>
+        ) : null}
+
+        {task.latestTimeExtensionRequest ? (
+          <DetailBlock
+            label="Latest Extra-Time Request"
+            value={`${task.latestTimeExtensionRequest.status} | ${task.latestTimeExtensionRequest.requestedMinutes} minutes | ${task.latestTimeExtensionRequest.reason}`}
+          />
+        ) : null}
+      </CardBody>
+    </Card>
   );
 }
 

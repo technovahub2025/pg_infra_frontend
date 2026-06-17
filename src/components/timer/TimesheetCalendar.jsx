@@ -390,15 +390,15 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div>
-            <div className="flex items-center gap-2 font-display text-lg font-semibold text-[rgb(var(--text))]">
+            <div className="flex items-center gap-2 font-display text-base font-semibold text-[rgb(var(--text))] sm:text-lg">
               <CalendarDays className="h-5 w-5 text-sky-500" />
               Calendar Heatmap
             </div>
-            <div className="mt-1 text-xs text-slate-500">{activeRangeLabel}</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">{activeRangeLabel}</div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel)/0.9)] p-1 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="grid w-full grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-1 rounded-2xl border border-[rgb(var(--line)/0.14)] bg-[rgb(var(--panel)/0.9)] p-1 shadow-sm sm:inline-flex sm:w-auto sm:grid-cols-none">
               <button
                 type="button"
                 onClick={() => stepRange(-1)}
@@ -411,7 +411,7 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
                 type="button"
                 onClick={cyclePickerStage}
                 className={cn(
-                  'min-w-[190px] px-3 py-3 text-center text-lg font-semibold leading-tight transition hover:text-sky-600',
+                  'min-w-0 px-2 py-3 text-center text-sm font-semibold leading-tight transition hover:text-sky-600 sm:min-w-[190px] sm:px-3 sm:text-lg',
                   pickerStage === 'calendar' ? 'text-[rgb(var(--text))]' : 'text-sky-600',
                 )}
                 aria-label="Change date browser"
@@ -427,7 +427,7 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            <Button type="button" size="sm" variant="ghost" onClick={clearRange}>
+            <Button type="button" size="sm" variant="ghost" className="w-full sm:w-auto" onClick={clearRange}>
               Clear
             </Button>
           </div>
@@ -455,9 +455,9 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0">
           {pickerStage === 'year' ? (
-            <div className="rounded-3xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.9)] p-5 shadow-sm transition-all duration-300">
+            <div className="rounded-3xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.9)] p-4 shadow-sm transition-all duration-300 sm:p-5">
               <div className="mb-4">
-                <div className="text-lg font-semibold text-[rgb(var(--text))]">{browseYearLabel}</div>
+                <div className="text-base font-semibold text-[rgb(var(--text))] sm:text-lg">{browseYearLabel}</div>
                 <div className="mt-1 text-xs text-slate-500">Click a year to browse months.</div>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -479,9 +479,9 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
               </div>
             </div>
           ) : pickerStage === 'month' ? (
-            <div className="rounded-3xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.9)] p-5 shadow-sm transition-all duration-300">
+            <div className="rounded-3xl border border-[rgb(var(--line)/0.16)] bg-[rgb(var(--panel)/0.9)] p-4 shadow-sm transition-all duration-300 sm:p-5">
               <div className="mb-4">
-                <div className="text-lg font-semibold text-[rgb(var(--text))]">{browseMonthLabel} {browseYearLabel}</div>
+                <div className="text-base font-semibold text-[rgb(var(--text))] sm:text-lg">{browseMonthLabel} {browseYearLabel}</div>
                 <div className="mt-1 text-xs text-slate-500">Click a month to return to the calendar.</div>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -507,7 +507,7 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
             </div>
           ) : (
             <>
-              <div className="mb-2 grid grid-cols-7 gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <div className="mb-2 grid grid-cols-7 gap-1.5 px-0 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:gap-2 sm:px-1 sm:text-[10px] sm:tracking-[0.18em]">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                   <span key={day} className="text-center">
                     {day}
@@ -515,7 +515,7 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                 {calendarDays.map((day) => {
                   const isHovered = hoveredDay?.key === day.key;
                   const isSelected = activeRange ? isWithinRange(day.date, activeRange) : false;
@@ -530,10 +530,10 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
                       onPointerUp={(event) => handleDayPointerUp(day, event)}
                       onPointerCancel={handleDayPointerCancel}
                       onPointerLeave={() => setHoveredDay(null)}
-                      onClick={(event) => handleDayClick(day, event)}
-                      title={`${format(day.date, 'dd MMM yyyy')} - ${formatDuration(day.duration)} across ${day.entries} entries and ${day.tasks} tasks`}
-                      className={cn(
-                        'group relative flex aspect-square flex-col items-center justify-center rounded-2xl border text-[10px] transition-all duration-300 ease-out will-change-transform',
+                    onClick={(event) => handleDayClick(day, event)}
+                    title={`${format(day.date, 'dd MMM yyyy')} - ${formatDuration(day.duration)} across ${day.entries} entries and ${day.tasks} tasks`}
+                    className={cn(
+                        'group relative flex aspect-square flex-col items-center justify-center rounded-xl border text-[9px] transition-all duration-300 ease-out will-change-transform sm:rounded-2xl sm:text-[10px]',
                         day.inMonth ? '' : 'opacity-45',
                         day.level === 0
                           ? 'border-slate-200 bg-slate-50 text-slate-500'
@@ -550,11 +550,11 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
                         isDragging ? 'cursor-grabbing' : 'cursor-pointer',
                         isHovered ? 'scale-[1.02] shadow-md shadow-sky-200/40' : 'hover:-translate-y-[1px] hover:shadow-sm',
                       )}
-                    >
-                      <span className="font-semibold">{format(day.date, 'dd')}</span>
-                      <span className="opacity-80">{formatHours(day.duration)}</span>
-                      {day.entries > 0 ? <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-white/80" /> : null}
-                      {day.entries > 1 ? <span className="absolute bottom-1.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-current opacity-60" /> : null}
+                      >
+                      <span className="font-semibold leading-none">{format(day.date, 'dd')}</span>
+                      <span className="mt-0.5 opacity-80 leading-none">{formatHours(day.duration)}</span>
+                      {day.entries > 0 ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-white/80 sm:right-2 sm:top-2 sm:h-2 sm:w-2" /> : null}
+                      {day.entries > 1 ? <span className="absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current opacity-60 sm:h-1.5 sm:w-1.5" /> : null}
                     </button>
                   );
                 })}
@@ -641,7 +641,7 @@ export function TimesheetCalendar({ dailySummary = [], allLogs = [], range, onRa
         </aside>
       </div>
 
-      <div className="mt-4 text-xs text-slate-500">
+      <div className="mt-4 text-xs leading-5 text-slate-500">
         Showing {summaryDays.length} summarized day{summaryDays.length === 1 ? '' : 's'} from the selected range.
       </div>
     </div>

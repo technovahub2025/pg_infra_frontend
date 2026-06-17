@@ -4,7 +4,7 @@ import { TaskPriorityBadge } from './TaskPriorityBadge';
 import { TaskStatusBadge } from './TaskStatusBadge';
 import { CalendarDays, Clock3, FolderKanban, PauseCircle, PlayCircle, UserRound, Users } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTimer } from '../../hooks/useTimer';
 import { useRequestTaskTimeExtension, useUpdateTask } from '../../hooks/useTasks';
@@ -13,7 +13,7 @@ import { formatDuration } from '../../store/timerStore';
 import { cn } from '../../lib/utils';
 import { format, parseISO } from 'date-fns';
 
-export function TaskCard({ task, onClick, showProject = false, selected = false, compact = false }) {
+export const TaskCard = memo(function TaskCard({ task, onClick, showProject = false, selected = false, compact = false }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const { isRunning, activeLog, elapsedSeconds, startTimer, stopTimer } = useTimer();
@@ -240,7 +240,9 @@ export function TaskCard({ task, onClick, showProject = false, selected = false,
       </CardBody>
     </Card>
   );
-}
+});
+
+TaskCard.displayName = 'TaskCard';
 
 function formatTaskDate(dateValue) {
   if (!dateValue) return 'No due date';

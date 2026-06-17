@@ -49,26 +49,30 @@ export function NotificationPanel({ open, notifications = [], onClose, onRead, o
             </div>
           </CardHeader>
           <CardBody className="min-h-0 flex-1 overflow-hidden p-0">
-            {notifications.length ? (
-              notifications.length > 50 ? (
-                <VirtualList
-                  items={notifications}
-                  estimateSize={140}
-                  className="h-[calc(100vh-140px)] px-4 py-3"
-                  renderItem={(notification) => <div className="pb-3">{renderNotification(notification)}</div>}
-                />
+            <div className="flex h-full min-h-0 flex-col">
+              {notifications.length ? (
+                notifications.length > 50 ? (
+                  <VirtualList
+                    items={notifications}
+                    estimateSize={140}
+                    className="h-full px-4 py-3"
+                    renderItem={(notification) => <div className="pb-3">{renderNotification(notification)}</div>}
+                  />
+                ) : (
+                  <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                    <div className="space-y-3">
+                      {notifications.map((notification) => (
+                        <div key={notification.id}>{renderNotification(notification)}</div>
+                      ))}
+                    </div>
+                  </div>
+                )
               ) : (
-                <div className="space-y-3 overflow-y-auto px-4 py-3">
-                  {notifications.map((notification) => (
-                    <div key={notification.id}>{renderNotification(notification)}</div>
-                  ))}
+                <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-3">
+                  <EmptyState title="No notifications" description="New activity will appear here." />
                 </div>
-              )
-            ) : (
-              <div className="px-4 py-3">
-                <EmptyState title="No notifications" description="New activity will appear here." />
-              </div>
-            )}
+              )}
+            </div>
           </CardBody>
         </Card>
       </div>
